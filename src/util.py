@@ -2,10 +2,12 @@ __author__ = 'victor'
 import pygame
 import os
 import sys
+import time
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import numpy as np
+
 
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
@@ -79,12 +81,15 @@ def plot_cont(fun, xmax):
     ax = fig.add_subplot(1,1,1)
 
     def update(i):
+        t1 = time.time()
         yi = fun()
+        dt = time.time() - t1
+
         y.append(yi)
         x = range(len(y))
         ax.clear()
         ax.plot(x, y)
-        print i, ': ', yi
+        print i, ': ', yi, '(', dt, ')'
 
     a = anim.FuncAnimation(fig, update, frames=xmax, repeat=False)
     plt.show()
@@ -94,15 +99,18 @@ play sound
 fs: frame rate (sec)
 x: sound samples
 '''
-def play(fs, x):
+def play(fs, x, sync=False):
     pygame.init()
     outputfile = './output.wav'
     UF.wavwrite(x, fs, outputfile)
     if os.path.isfile(outputfile):
         sound = pygame.mixer.Sound(outputfile)
-        sound.play()
+        ch = sound.play()
+        if(sync):
+            wait_sound(ch)
     else:
         print "Output audio file not found", "The output audio file has not been computed yet"
+
 
 
 '''
@@ -113,6 +121,10 @@ pX: phase spectrum
 M: window size
 H: hop size
 '''
-def play_spec(fs, mX, pX, M, H):
+def play_spec(fs, mX, pX, M, H, sync=False):
     x = stft.stftSynth(mX, pX, M, H)
-    play(fs, x)
+    play(fs, x, sync)
+
+def wait_sound(ch):
+    while ch.get_busy():
+        time.sleep(1)

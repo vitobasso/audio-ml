@@ -37,19 +37,19 @@ def resize(fs, x, tsec):
 
 soundfile1 = smstools_home + "/sounds/singing-female.wav"
 soundfile2 = smstools_home + "/sounds/cello-double.wav"
-M = 511 # window size
 N = 512 # dft size (window + zero padding)
-H = 200 # stft hop size
+M = N-1 # window size
+H = (M+1)/2 # stft hop size
 w = get_window("hamming", M)
 
 def show(fs, X):
     print X.shape
     util.plot_stft(fs, X, N, H)
 
-def play_spec(fs, mX, pX):
-    util.play_spec(fs, mX, pX, M, H)
+def play_spec(fs, mX, pX, sync=False):
+    util.play_spec(fs, mX, pX, M, H, sync)
 
-def loadspec(soundfile, len=1):
+def loadspec(soundfile, len=5):
     fs, x = UF.wavread(soundfile)
     x = resize(fs, x, len)
     w = get_window("hamming", M)
@@ -59,25 +59,44 @@ def loadspec(soundfile, len=1):
     return fs, x, mX, pX
 
 # prepare dataset
-partsize = 10
-fs1, x1, mX1, pX1 = loadspec(soundfile1)
-fs2, x2, mX2, pX2 = loadspec(soundfile2)
+fs1, x1, mX1, pX1 = loadspec(soundfile1, 2)
+fs2, x2, mX2, pX2 = loadspec(soundfile2, 2)
 assert fs1 == fs2
 xmix = np.add(0.5*x1, 0.5*x2)
 mXmix, pXmix = stft.stftAnal(xmix, fs1, w, N, H)
-util.play(fs2, xmix)
-show(fs2, mXmix)
-
-# learning
-x1parts = split(mX1, partsize)
-mixparts = split(mXmix, partsize)
+# util.play(fs2, xmix)
+# play_spec(fs2, mXmix, pXmix)
+# show(fs2, mXmix)
+# play_spec(fs2, mXmix, np.zeros(pXmix.shape))
+partlength = 50
+x1parts = split(mX1, partlength)
+mixparts = split(mXmix, partlength)
 assert len(x1parts) == len(mixparts)
-netwidth = partsize * (N+2) / 2
-net = buildNetwork(netwidth, 150, 150, netwidth, bias=True, hiddenclass=TanhLayer)
+nparts = len(x1parts)
+freqrange = (N+2) / 2 # idk why this value exactly. found by try and error
+
+
+# train
+epochs = 30
+netwidth = partlength * freqrange
+net = buildNetwork(netwidth, 150, netwidth, bias=True, hiddenclass=TanhLayer)
 ds = SupervisedDataSet(netwidth, netwidth)
-for i in np.arange(len(mixparts)):
+for i in np.arange(nparts):
     sample = np.reshape(mixparts[i], netwidth)
     target = np.reshape(x1parts[i], netwidth)
     ds.addSample(sample, target)
 trainer = BackpropTrainer(net, ds)
-util.plot_cont(trainer.train, 100)
+util.plot_cont(trainer.train, epochs)
+
+# filter
+result = np.empty((partlength, freqrange))
+for i in np.arange(nparts):
+    sample = np.reshape(mixparts[i], netwidth)
+    netout = net.activate(sample)
+    part = np.reshape(netout, (partlength, freqrange))
+    result = np.append(result, part, axis=0)
+
+# play result
+gap = len(result) - len(pX1)
+result = result[0:len(result)-gap]
+play_spec(fs2, result, pX1, sync=True)
