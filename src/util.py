@@ -1,9 +1,20 @@
 __author__ = 'victor'
+import pygame
+import os
+import sys
+
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import numpy as np
 
-# plot signal and spectrogram
+smstools_home = "../../_dependencies/sms-tools"
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
+import stft
+import utilFunctions as UF
+
+'''
+plot signal and spectrogram
+'''
 def plot_stft(x, fs, mX, N, H):
     # create figure to plot
     plt.figure(figsize=(12, 9))
@@ -33,8 +44,9 @@ def plot_stft(x, fs, mX, N, H):
     plt.tight_layout()
     plt.show()
 
-
-# plot spectrogram
+'''
+plot spectrogram
+'''
 def plot_stft(fs, mX, N, H):
     # create figure to plot
     plt.figure(figsize=(6, 3))
@@ -56,8 +68,11 @@ def plot_stft(fs, mX, N, H):
     plt.tight_layout()
     plt.show()
 
-
-# plot 1d-function updating continuously
+'''
+plot 1d-function updating continuously
+fun: function
+xmax: maximum value of X, when updates must stop
+'''
 def plot_cont(fun, xmax):
     y = []
     fig = plt.figure()
@@ -66,10 +81,38 @@ def plot_cont(fun, xmax):
     def update(i):
         yi = fun()
         y.append(yi)
-        x = np.arange(len(y))
+        x = range(len(y))
         ax.clear()
         ax.plot(x, y)
         print i, ': ', yi
 
     a = anim.FuncAnimation(fig, update, frames=xmax, repeat=False)
     plt.show()
+
+'''
+play sound
+fs: frame rate (sec)
+x: sound samples
+'''
+def play(fs, x):
+    pygame.init()
+    outputfile = './output.wav'
+    UF.wavwrite(x, fs, outputfile)
+    if os.path.isfile(outputfile):
+        sound = pygame.mixer.Sound(outputfile)
+        sound.play()
+    else:
+        print "Output audio file not found", "The output audio file has not been computed yet"
+
+
+'''
+play sound (given as spectrogram)
+fs: frame rate (sec)
+mX: magnitude spectrum
+pX: phase spectrum
+M: window size
+H: hop size
+'''
+def play_spec(fs, mX, pX, M, H):
+    x = stft.stftSynth(mX, pX, M, H)
+    play(fs, x)
