@@ -46,8 +46,8 @@ def show(fs, X):
     print X.shape
     util.plot_stft(fs, X, N, H)
 
-def play_spec(fs, mX, pX, sync=False):
-    util.play_spec(fs, mX, pX, M, H, sync)
+def writespec(fs, mX, pX, sync=False, outputfile='./output.wav', play=False):
+    util.writespec(fs, mX, pX, M, H, sync, outputfile=outputfile, play=play)
 
 def loadspec(soundfile, len=5):
     fs, x = UF.wavread(soundfile)
@@ -59,13 +59,14 @@ def loadspec(soundfile, len=5):
     return fs, x, mX, pX
 
 # prepare dataset
-fs1, x1, mX1, pX1 = loadspec(soundfile1, 2)
-fs2, x2, mX2, pX2 = loadspec(soundfile2, 2)
+fs1, x1, mX1, pX1 = loadspec(soundfile1)
+fs2, x2, mX2, pX2 = loadspec(soundfile2)
 assert fs1 == fs2
 xmix = np.add(0.5*x1, 0.5*x2)
 mXmix, pXmix = stft.stftAnal(xmix, fs1, w, N, H)
 # util.play(fs2, xmix)
-# play_spec(fs2, mXmix, pXmix)
+writespec(fs2, mXmix, pXmix, outputfile='./mix.wav')
+writespec(fs2, mX1, pX1, outputfile='./target.wav')
 # show(fs2, mXmix)
 # play_spec(fs2, mXmix, np.zeros(pXmix.shape))
 partlength = 50
@@ -99,4 +100,4 @@ for i in np.arange(nparts):
 # play result
 gap = len(result) - len(pX1)
 result = result[0:len(result)-gap]
-play_spec(fs2, result, pX1, sync=True)
+writespec(fs2, result, pX1, sync=True, outputfile='./output.wav')

@@ -95,36 +95,38 @@ def plot_cont(fun, xmax):
     plt.show()
 
 '''
-play sound
+write sound file
+optionally plays it
 fs: frame rate (sec)
 x: sound samples
 '''
-def play(fs, x, sync=False):
+def writesound(fs, x, sync=False, outputfile='./output.wav', play=False):
     pygame.init()
-    outputfile = './output.wav'
     UF.wavwrite(x, fs, outputfile)
     if os.path.isfile(outputfile):
-        sound = pygame.mixer.Sound(outputfile)
-        ch = sound.play()
-        if(sync):
-            wait_sound(ch)
+        if(play):
+            sound = pygame.mixer.Sound(outputfile)
+            ch = sound.play()
+            if(sync):
+                __wait_sound(ch)
     else:
         print "Output audio file not found", "The output audio file has not been computed yet"
 
 
 
 '''
-play sound (given as spectrogram)
+write sound file (given as spectrogram)
+optionally plays it
 fs: frame rate (sec)
 mX: magnitude spectrum
 pX: phase spectrum
 M: window size
 H: hop size
 '''
-def play_spec(fs, mX, pX, M, H, sync=False):
+def writespec(fs, mX, pX, M, H, sync=False, outputfile='./output.wav', play=False):
     x = stft.stftSynth(mX, pX, M, H)
-    play(fs, x, sync)
+    writesound(fs, x, sync, outputfile=outputfile, play=play)
 
-def wait_sound(ch):
+def __wait_sound(ch):
     while ch.get_busy():
         time.sleep(1)
