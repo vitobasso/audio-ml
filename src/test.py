@@ -58,6 +58,7 @@ def loadspec(soundfile, len=5):
     # X freq size ~ fft size / 2)
     return fs, x, mX, pX
 
+
 # prepare dataset
 fs1, x1, mX1, pX1 = loadspec(soundfile1)
 fs2, x2, mX2, pX2 = loadspec(soundfile2)
@@ -70,34 +71,52 @@ writespec(fs2, mX1, pX1, outputfile='./target.wav')
 # show(fs2, mXmix)
 # play_spec(fs2, mXmix, np.zeros(pXmix.shape))
 partlength = 50
-x1parts = split(mX1, partlength)
-mixparts = split(mXmix, partlength)
-assert len(x1parts) == len(mixparts)
-nparts = len(x1parts)
+mX1parts = split(mX1, partlength)
+pX1parts = split(pX1, partlength)
+mXmixparts = split(mXmix, partlength)
+pXmixparts = split(pXmix, partlength)
+assert len(mX1parts) == len(mXmixparts) == len(pX1parts) == len(pXmixparts)
+nparts = len(mX1parts)
 freqrange = (N+2) / 2 # idk why this value exactly. found by try and error
 
 
 # train
 epochs = 30
-netwidth = partlength * freqrange
+flatwidth = partlength * freqrange
+netwidth = 2 * flatwidth
+def flatten_sample(v1, v2):
+    res1 = np.reshape(v1, flatwidth)
+    res2 = np.reshape(v2, flatwidth)
+    return np.append(res1, res2)
 net = buildNetwork(netwidth, 150, netwidth, bias=True, hiddenclass=TanhLayer)
 ds = SupervisedDataSet(netwidth, netwidth)
 for i in np.arange(nparts):
-    sample = np.reshape(mixparts[i], netwidth)
-    target = np.reshape(x1parts[i], netwidth)
+    sample = flatten_sample(mXmixparts[i], pXmixparts[i])
+    target = flatten_sample(mX1parts[i], pX1parts[i])
     ds.addSample(sample, target)
 trainer = BackpropTrainer(net, ds)
 util.plot_cont(trainer.train, epochs)
 
-# filter
-result = np.empty((partlength, freqrange))
-for i in np.arange(nparts):
-    sample = np.reshape(mixparts[i], netwidth)
-    netout = net.activate(sample)
-    part = np.reshape(netout, (partlength, freqrange))
-    result = np.append(result, part, axis=0)
 
-# play result
-gap = len(result) - len(pX1)
-result = result[0:len(result)-gap]
-writespec(fs2, result, pX1, sync=True, outputfile='./output.wav')
+# filter
+def unflatten_sample(v):
+    flatm = v[:flatwidth]
+    flatp = v[flatwidth:]
+    mX = np.reshape(flatm, (partlength, freqrange))
+    pX = np.reshape(flatp, (partlength, freqrange))
+    return mX, pX
+mXresult = np.empty((partlength, freqrange))
+pXresult = np.empty((partlength, freqrange))
+for i in np.arange(nparts):
+    sample = flatten_sample(mXmixparts[i], pXmixparts[i])
+    netout = net.activate(sample)
+    mXpart, pXpart = unflatten_sample(netout)
+    mXresult = np.append(mXresult, mXpart, axis=0)
+    pXresult = np.append(pXresult, pXpart, axis=0)
+
+
+# show result
+gap = len(mXresult) - len(mX1)
+mXresult = mXresult[0:len(mXresult)-gap]
+pXresult = pXresult[0:len(pXresult)-gap]
+writespec(fs2, mXresult, pXresult, sync=True, outputfile='./output.wav')
