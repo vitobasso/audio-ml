@@ -94,6 +94,7 @@ def plot_cont(fun, xmax):
     a = anim.FuncAnimation(fig, update, frames=xmax, repeat=False)
     plt.show()
 
+
 '''
 write sound file
 optionally plays it

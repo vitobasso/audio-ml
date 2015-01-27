@@ -19,12 +19,17 @@ import stft
 import utilFunctions as UF
 
 
-def split(mX, partsize):
-    nparts = len(mX)/partsize
-    Xparts = np.empty((nparts, partsize, mX.shape[1]))
-    for i in np.arange(0, nparts):
-        Xparts[i] = mX[i*partsize:(i+1)*partsize]
-    return Xparts
+def split_sub(matrix, length):
+    n = len(matrix)/length
+    parts = np.empty((n, length, matrix.shape[1]))
+    for i in np.arange(0, n):
+        parts[i] = matrix[i*length:(i+1)*length]
+    return parts
+
+def split(mX, pX, length):
+    mXparts = split_sub(mX, length)
+    pXparts = split_sub(pX, length)
+    return mXparts, pXparts
 
 def resize(fs, x, tsec):
     tsamples = tsec * fs
@@ -58,26 +63,25 @@ def loadspec(soundfile, len=5):
     # X freq size ~ fft size / 2)
     return fs, x, mX, pX
 
+def mix(fs1, x1, fs2, x2):
+    assert fs1 == fs2
+    xmix = np.add(0.5*x1, 0.5*x2)
+    mXmix, pXmix = stft.stftAnal(xmix, fs1, w, N, H)
+    return fs1, xmix, mXmix, pXmix
 
 # prepare dataset
 fs1, x1, mX1, pX1 = loadspec(soundfile1)
 fs2, x2, mX2, pX2 = loadspec(soundfile2)
-assert fs1 == fs2
-xmix = np.add(0.5*x1, 0.5*x2)
-mXmix, pXmix = stft.stftAnal(xmix, fs1, w, N, H)
-# util.play(fs2, xmix)
-writespec(fs2, mXmix, pXmix, outputfile='./mix.wav')
+fsmix, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
+writespec(fsmix, mXmix, pXmix, outputfile='./mix.wav', play=True)
 writespec(fs2, mX1, pX1, outputfile='./target.wav')
 # show(fs2, mXmix)
-# play_spec(fs2, mXmix, np.zeros(pXmix.shape))
 partlength = 50
-mX1parts = split(mX1, partlength)
-pX1parts = split(pX1, partlength)
-mXmixparts = split(mXmix, partlength)
-pXmixparts = split(pXmix, partlength)
+mX1parts, pX1parts = split(mX1, pX1, partlength)
+mXmixparts, pXmixparts = split(mXmix, pXmix, partlength)
 assert len(mX1parts) == len(mXmixparts) == len(pX1parts) == len(pXmixparts)
 nparts = len(mX1parts)
-freqrange = (N+2) / 2 # idk why this value exactly. found by try and error
+freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
 
 
 # train
@@ -89,12 +93,12 @@ def flatten_sample(v1, v2):
     res2 = np.reshape(v2, flatwidth)
     return np.append(res1, res2)
 net = buildNetwork(netwidth, 150, netwidth, bias=True, hiddenclass=TanhLayer)
-ds = SupervisedDataSet(netwidth, netwidth)
+dataset = SupervisedDataSet(netwidth, netwidth)
 for i in np.arange(nparts):
     sample = flatten_sample(mXmixparts[i], pXmixparts[i])
     target = flatten_sample(mX1parts[i], pX1parts[i])
-    ds.addSample(sample, target)
-trainer = BackpropTrainer(net, ds)
+    dataset.addSample(sample, target)
+trainer = BackpropTrainer(net, dataset)
 util.plot_cont(trainer.train, epochs)
 
 
