@@ -1,7 +1,17 @@
- - save trained weights to use later
- - load other sounds and try to apply on them
- - recurrent network: unsupervised training on sequence
- - link inputs directly to outputs then use less hidden units
- - normalize input
- - raw signal as input
- - play results while training
+
+- save trained weights to use later
+- load other sounds and try to apply on them
+- play results while training
+
+# strategy
+   - recurrent network: unsupervised training on sequence
+   - link inputs directly to outputs then use less hidden units
+   - raw signal as input
+
+# pre process
+   - normalize
+   - cut silences
+
+
+
+

@@ -70,9 +70,7 @@ def unflatten_sample(v):
     return mX, pX
 
 
-def train():
-
-    # prepare dataset
+def load_mix():
     fs1, x1, mX1, pX1 = loadspec(soundfile1)
     fs2, x2, mX2, pX2 = loadspec(soundfile2)
     assert fs1 == fs2
@@ -81,22 +79,28 @@ def train():
     write(fs2, mX1, pX1, outputfile='target.wav')
     # play('mix.wav', sync=True)
     # show(fs2, mXmix)
-    mX1parts, pX1parts = split(mX1, pX1, partlength)
+    return fs1, mXmix, pXmix, mX1, pX1
+
+
+def train(mXmix, pXmix, mXtarget, pXtarget):
+
+    # prepare dataset
+    mXtargetparts, pXtargetparts = split(mXtarget, pXtarget, partlength)
     mXmixparts, pXmixparts = split(mXmix, pXmix, partlength)
-    assert len(mX1parts) == len(mXmixparts) == len(pX1parts) == len(pXmixparts)
-    nparts = len(mX1parts)
+    assert len(mXtargetparts) == len(mXmixparts) == len(pXtargetparts) == len(pXmixparts)
+    nparts = len(mXtargetparts)
 
     # train
     net = buildNetwork(netwidth, 150, netwidth, bias=True, hiddenclass=TanhLayer)
     dataset = SupervisedDataSet(netwidth, netwidth)
     for i in np.arange(nparts):
         sample = flatten_sample(mXmixparts[i], pXmixparts[i])
-        target = flatten_sample(mX1parts[i], pX1parts[i])
+        target = flatten_sample(mXtargetparts[i], pXtargetparts[i])
         dataset.addSample(sample, target)
     trainer = BackpropTrainer(net, dataset)
     plot_cont(trainer.train, epochs)
 
-    return net, nparts, mXmixparts, pXmixparts, fs1
+    return net, nparts, mXmixparts, pXmixparts
 
 
 def test(net, nparts, mXparts, pXparts, fs):
@@ -112,5 +116,6 @@ def test(net, nparts, mXparts, pXparts, fs):
     write(fs, mXresult, pXresult, outputfile='output.wav')
 
 
-net, nparts, mXparts, pXparts, fs = train()
+fs, mXmix, pXmix, mX, pX = load_mix()
+net, nparts, mXparts, pXparts = train(mXmix, pXmix, mX, pX)
 test(net, nparts, mXparts, pXparts, fs)
