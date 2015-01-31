@@ -51,7 +51,7 @@ def show(fs, X):
     print X.shape
     util.plot_stft(fs, X, N, H)
 
-def writespec(fs, mX, pX, sync=False, outputfile='./output.wav', play=False):
+def writespec(fs, mX, pX, sync=False, outputfile='../out/output.wav', play=False):
     util.writespec(fs, mX, pX, M, H, sync, outputfile=outputfile, play=play)
 
 def loadspec(soundfile, len=5):
@@ -73,8 +73,8 @@ def mix(fs1, x1, fs2, x2):
 fs1, x1, mX1, pX1 = loadspec(soundfile1)
 fs2, x2, mX2, pX2 = loadspec(soundfile2)
 fsmix, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
-writespec(fsmix, mXmix, pXmix, outputfile='./mix.wav', play=True)
-writespec(fs2, mX1, pX1, outputfile='./target.wav')
+writespec(fsmix, mXmix, pXmix, outputfile='../out/mix.wav', play=True)
+writespec(fs2, mX1, pX1, outputfile='../out/target.wav')
 # show(fs2, mXmix)
 partlength = 50
 mX1parts, pX1parts = split(mX1, pX1, partlength)
@@ -101,6 +101,8 @@ for i in np.arange(nparts):
 trainer = BackpropTrainer(net, dataset)
 util.plot_cont(trainer.train, epochs)
 
+# write
+
 
 # filter
 def unflatten_sample(v):
@@ -123,4 +125,4 @@ for i in np.arange(nparts):
 gap = len(mXresult) - len(mX1)
 mXresult = mXresult[0:len(mXresult)-gap]
 pXresult = pXresult[0:len(pXresult)-gap]
-writespec(fs2, mXresult, pXresult, sync=True, outputfile='./output.wav')
+writespec(fs2, mXresult, pXresult, sync=True, outputfile='../out/output.wav')
