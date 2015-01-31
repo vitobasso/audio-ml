@@ -135,7 +135,7 @@ def wait_sound(ch):
 
 def savenet(net, width):
     timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S')
-    file = output_dir + 'net_' + width + '_' + timestamp
+    file = '%snet_%d_%s' % (output_dir, width, timestamp)
     NetworkWriter.writeToFile(net, file)
 
 

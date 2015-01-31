@@ -2,10 +2,9 @@ __author__ = 'victor'
 
 from scipy.signal import get_window
 
-from pybrain.tools.shortcuts import buildNetwork
 from pybrain.datasets import SupervisedDataSet
-from pybrain.supervised.trainers import BackpropTrainer
-from pybrain import TanhLayer
+from pybrain.supervised.trainers import RPropMinusTrainer
+from pybrain import FeedForwardNetwork, LinearLayer, SigmoidLayer, FullConnection, IdentityConnection
 
 from util import *
 
@@ -28,10 +27,10 @@ freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
 
 # dataset
 trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
-partlen = 20 # num of spectrogram columns to input to the net
+partlen = 30 # num of spectrogram columns to input to the net
 
 # training
-epochs = 30
+epochs = 100
 flatwidth = partlen * freqrange
 netwidth = 2 * flatwidth # num of units in the input and output layers (magnitudes and phases)
 
@@ -93,22 +92,48 @@ def prepare_dataset(soundlen=trainsoundlen):
     return fs1, nparts, mXmixparts, pXmixparts, mXtargetparts, pXtargetparts
 
 
+def build_net(width):
+    net = FeedForwardNetwork()
+
+    # layers
+    net.addInputModule(LinearLayer(width, name='in'))
+    net.addOutputModule(LinearLayer(width, name='out'))
+    net.addModule(SigmoidLayer(50, name='h1'))
+    net.addModule(SigmoidLayer(20, name='h2'))
+    # net.addModule(SigmoidLayer(10, name='h3'))
+
+    # connections
+    net.addConnection(FullConnection(net['in'], net['h1']))
+    net.addConnection(FullConnection(net['h1'], net['h2']))
+    # net.addConnection(FullConnection(net['h1'], net['h3']))
+    net.addConnection(FullConnection(net['h1'], net['out']))
+    # net.addConnection(FullConnection(net['h2'], net['h3']))
+    net.addConnection(FullConnection(net['h2'], net['out']))
+    # net.addConnection(FullConnection(net['h3'], net['out']))
+    net.addConnection(FullConnection(net['h1'], net['out']))
+    net.addConnection(IdentityConnection(net['in'], net['out']))
+
+    net.sortModules()
+    return net
+
+
 def train(nparts, msample, psample, mtarget, ptarget):
 
     print 'preparing to train, nparts=%d, netwidth=%d' % (nparts, netwidth)
-    net = buildNetwork(netwidth, 150, netwidth, bias=True, hiddenclass=TanhLayer)
+    net = build_net(netwidth)
     dataset = SupervisedDataSet(netwidth, netwidth)
     for i in np.arange(nparts):
         sample = flatten_sample(msample[i], psample[i])
         target = flatten_sample(mtarget[i], ptarget[i])
         dataset.addSample(sample, target)
-    trainer = BackpropTrainer(net, dataset)
+    # trainer = BackpropTrainer(net, dataset, momentum=0.1)
+    trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=.001)
 
     print 'training...'
     plot_cont(trainer.train, epochs)
 
     print 'saving net...'
-    savenet(trainer.module)
+    savenet(trainer.module, netwidth)
     return net
 
 
