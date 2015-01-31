@@ -14,6 +14,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstoo
 import stft
 import utilFunctions as UF
 
+output_dir = '../out/'
+
 '''
 plot signal and spectrogram
 '''
@@ -92,42 +94,58 @@ def plot_cont(fun, xmax):
         print i, ': ', yi, '(', dt, ')'
 
     a = anim.FuncAnimation(fig, update, frames=xmax, repeat=False)
+    # reference 'a' above is needed to avoid garbage collector from removing the obj
     plt.show()
 
 
 '''
-write sound file
-optionally plays it
-fs: frame rate (sec)
-x: sound samples
-'''
-def writesound(fs, x, sync=False, outputfile='./output.wav', play=False):
-    pygame.init()
-    UF.wavwrite(x, fs, outputfile)
-    if os.path.isfile(outputfile):
-        if(play):
-            sound = pygame.mixer.Sound(outputfile)
-            ch = sound.play()
-            if(sync):
-                __wait_sound(ch)
-    else:
-        print "Output audio file not found", "The output audio file has not been computed yet"
-
-
-
-'''
 write sound file (given as spectrogram)
-optionally plays it
 fs: frame rate (sec)
 mX: magnitude spectrum
 pX: phase spectrum
 M: window size
 H: hop size
 '''
-def writespec(fs, mX, pX, M, H, sync=False, outputfile='./output.wav', play=False):
+def specwrite(fs, mX, pX, M, H, outputfile='output.wav'):
+    file = output_dir + outputfile
     x = stft.stftSynth(mX, pX, M, H)
-    writesound(fs, x, sync, outputfile=outputfile, play=play)
+    UF.wavwrite(x, fs, file)
 
-def __wait_sound(ch):
+
+def play(soundfile='output.wav', sync=False):
+    file = output_dir + soundfile
+    pygame.init()
+    if os.path.isfile(file):
+        if(play):
+            sound = pygame.mixer.Sound(file)
+            ch = sound.play()
+            if(sync):
+                wait_sound(ch)
+    else:
+        print "Output audio file not found", "The output audio file has not been computed yet"
+
+
+def wait_sound(ch):
     while ch.get_busy():
         time.sleep(1)
+
+
+def split_sub(matrix, length):
+    n = len(matrix)/length
+    parts = np.empty((n, length, matrix.shape[1]))
+    for i in np.arange(0, n):
+        parts[i] = matrix[i*length:(i+1)*length]
+    return parts
+
+def split(mX, pX, length):
+    mXparts = split_sub(mX, length)
+    pXparts = split_sub(pX, length)
+    return mXparts, pXparts
+
+def resize(fs, x, tsec):
+    tsamples = tsec * fs
+    if(len(x) >= tsamples):
+        return x[:tsamples]
+    else:
+        rep = tsamples/len(x) + 1
+        return np.tile(x, rep)[:tsamples]

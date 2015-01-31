@@ -4,3 +4,4 @@
  - link inputs directly to outputs then use less hidden units
  - normalize input
  - raw signal as input
+ - play results while training
