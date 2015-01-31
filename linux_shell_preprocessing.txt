@@ -1,0 +1,15 @@
+# convert to wav
+ffmpeg -i <input> <output>.wav
+
+# find all aif/mp3/flac
+find . -name *.aif -o -name *.mp3 -o -name *.flac
+
+# convert all mp3 to wav
+find . -name *.mp3 | sed 'p;s/mp3/wav/' | xargs -n2 ffmpeg -i
+
+# remove all mp3
+find . -name *.mp3 | xargs rm
+
+# sound info
+# options: -t (format), -r (sample rate), -c (channels), -s (num samples), -d (duration)
+soxi <file>
