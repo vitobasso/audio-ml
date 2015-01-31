@@ -27,22 +27,24 @@ w = get_window("hamming", M)
 freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
 
 # dataset
-partlength = 50
+trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
+partlen = 20 # num of spectrogram columns to input to the net
 
 # training
 epochs = 30
-flatwidth = partlength * freqrange
-netwidth = 2 * flatwidth
+flatwidth = partlen * freqrange
+netwidth = 2 * flatwidth # num of units in the input and output layers (magnitudes and phases)
 
 
 def show(fs, X):
     print X.shape
     plot_stft(fs, X, N, H)
 
-def write(fs, mX, pX, outputfile='output.wav'):
+def write(fs, mX, pX, outputfile):
     specwrite(fs, mX, pX, M, H, outputfile=outputfile)
 
 def loadspec(soundfile, len=5):
+    print 'loading wav:', soundfile, 'len:', len
     fs, x = UF.wavread(soundfile)
     x = resize(fs, x, len)
     w = get_window("hamming", M)
@@ -65,57 +67,66 @@ def flatten_sample(v1, v2):
 def unflatten_sample(v):
     flatm = v[:flatwidth]
     flatp = v[flatwidth:]
-    mX = np.reshape(flatm, (partlength, freqrange))
-    pX = np.reshape(flatp, (partlength, freqrange))
+    mX = np.reshape(flatm, (partlen, freqrange))
+    pX = np.reshape(flatp, (partlen, freqrange))
     return mX, pX
 
 
-def load_mix():
-    fs1, x1, mX1, pX1 = loadspec(soundfile1)
-    fs2, x2, mX2, pX2 = loadspec(soundfile2)
+def prepare_dataset(soundlen=trainsoundlen):
+
+    # load and mix
+    fs1, x1, mX1, pX1 = loadspec(soundfile1, len=soundlen)
+    fs2, x2, mX2, pX2 = loadspec(soundfile2, len=soundlen)
     assert fs1 == fs2
     fsmix, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
-    write(fsmix, mXmix, pXmix, outputfile='mix.wav')
-    write(fs2, mX1, pX1, outputfile='target.wav')
+    # write(fsmix, mXmix, pXmix, outputfile='mix.wav')
+    # write(fs2, mX1, pX1, outputfile='target.wav')
     # play('mix.wav', sync=True)
     # show(fs2, mXmix)
-    return fs1, mXmix, pXmix, mX1, pX1
 
-
-def train(mXmix, pXmix, mXtarget, pXtarget):
-
-    # prepare dataset
-    mXtargetparts, pXtargetparts = split(mXtarget, pXtarget, partlength)
-    mXmixparts, pXmixparts = split(mXmix, pXmix, partlength)
+    # split parts
+    mXtargetparts, pXtargetparts = split(mX1, pX1, partlen)
+    mXmixparts, pXmixparts = split(mXmix, pXmix, partlen)
     assert len(mXtargetparts) == len(mXmixparts) == len(pXtargetparts) == len(pXmixparts)
     nparts = len(mXtargetparts)
 
-    # train
+    return fs1, nparts, mXmixparts, pXmixparts, mXtargetparts, pXtargetparts
+
+
+def train(nparts, msample, psample, mtarget, ptarget):
+
+    print 'preparing to train, nparts=%d, netwidth=%d' % (nparts, netwidth)
     net = buildNetwork(netwidth, 150, netwidth, bias=True, hiddenclass=TanhLayer)
     dataset = SupervisedDataSet(netwidth, netwidth)
     for i in np.arange(nparts):
-        sample = flatten_sample(mXmixparts[i], pXmixparts[i])
-        target = flatten_sample(mXtargetparts[i], pXtargetparts[i])
+        sample = flatten_sample(msample[i], psample[i])
+        target = flatten_sample(mtarget[i], ptarget[i])
         dataset.addSample(sample, target)
     trainer = BackpropTrainer(net, dataset)
+
+    print 'training...'
     plot_cont(trainer.train, epochs)
 
-    return net, nparts, mXmixparts, pXmixparts
+    print 'saving net...'
+    savenet(trainer.module)
+    return net
 
 
-def test(net, nparts, mXparts, pXparts, fs):
-    mXresult = np.empty((partlength, freqrange))
-    pXresult = np.empty((partlength, freqrange))
+def test(net, fs, nparts, mXparts, pXparts):
+    print 'testing...'
+    mXresult = np.empty((partlen, freqrange))
+    pXresult = np.empty((partlen, freqrange))
     for i in np.arange(nparts):
         sample = flatten_sample(mXparts[i], pXparts[i])
         netout = net.activate(sample)
         mXpart, pXpart = unflatten_sample(netout)
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
-
     write(fs, mXresult, pXresult, outputfile='output.wav')
 
 
-fs, mXmix, pXmix, mX, pX = load_mix()
-net, nparts, mXparts, pXparts = train(mXmix, pXmix, mX, pX)
-test(net, nparts, mXparts, pXparts, fs)
+fs, nparts, msample, psample, mtarget, ptarget = prepare_dataset()
+net = train(nparts, msample, psample, mtarget, ptarget)
+# fs, nparts, msample, psample, mtarget, ptarget = prepare_dataset(5)
+# net = loadnet('net_2015-01-31T18:34:08')
+test(net, fs, nparts, msample, psample)

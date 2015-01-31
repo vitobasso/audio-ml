@@ -3,10 +3,12 @@ import pygame
 import os
 import sys
 import time
+import datetime
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import numpy as np
+from pybrain.tools.xml import NetworkWriter, NetworkReader
 
 
 smstools_home = "../../_dependencies/sms-tools"
@@ -91,7 +93,8 @@ def plot_cont(fun, xmax):
         x = range(len(y))
         ax.clear()
         ax.plot(x, y)
-        print i, ': ', yi, '(', dt, ')'
+
+        print '%d: err=%f, t=%.2fs' % (i, yi, dt)
 
     a = anim.FuncAnimation(fig, update, frames=xmax, repeat=False)
     # reference 'a' above is needed to avoid garbage collector from removing the obj
@@ -128,6 +131,18 @@ def play(soundfile='output.wav', sync=False):
 def wait_sound(ch):
     while ch.get_busy():
         time.sleep(1)
+
+
+def savenet(net, width):
+    timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S')
+    file = output_dir + 'net_' + width + '_' + timestamp
+    NetworkWriter.writeToFile(net, file)
+
+
+def loadnet(filename):
+    file = output_dir + filename
+    print 'loading net: ' + filename
+    return NetworkReader.readFrom(file)
 
 
 def split_sub(matrix, length):
