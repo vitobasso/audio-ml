@@ -4,7 +4,7 @@ from scipy.signal import get_window
 
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, IdentityConnection, TanhLayer
+from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer
 
 from util import *
 
@@ -28,7 +28,7 @@ freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
 
 # dataset
 trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
-partlen = 30 # num of spectrogram columns to input to the net
+partlen = 10 # num of spectrogram columns to input to the net
 
 # training
 epochs = 100
@@ -65,9 +65,9 @@ def mix(fs1, x1, fs2, x2):
     return fs1, xmix, mXmix, pXmix
 
 def mixnorm(fs1, x1, fs2, x2):
-    fs1, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
+    fs, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
     mXnorm, avg, std = normalize(mXmix)
-    return fs1, xmix, mXnorm, pXmix, avg, std
+    return fs, xmix, mXnorm, pXmix, avg, std
 
 def flatten_sample(v1, v2):
     res1 = np.reshape(v1, flatwidth)
@@ -95,8 +95,8 @@ def prepare_dataset(soundlen=trainsoundlen):
     # show(fs2, mX3)
 
     # split parts
-    mXtarget_parts, pXtarget_parts = split(mX1, pX1, partlen)
-    mXmix_parts, pXmix_parts = split(mX3, pX3, partlen)
+    mXtarget_parts, pXtarget_parts = split_spec(mX1, pX1, partlen)
+    mXmix_parts, pXmix_parts = split_spec(mX3, pX3, partlen)
     assert len(mXtarget_parts) == len(mXmix_parts) == len(pXtarget_parts) == len(pXmix_parts)
     nparts = len(mXtarget_parts)
 
@@ -121,7 +121,7 @@ def build_net(width):
     # net.addConnection(FullConnection(net['h2'], net['h3']))
     # net.addConnection(FullConnection(net['h2'], net['out']))
     # net.addConnection(FullConnection(net['h3'], net['out']))
-    net.addConnection(IdentityConnection(net['in'], net['out']))
+    # net.addConnection(IdentityConnection(net['in'], net['out']))
 
     net.sortModules()
     return net
@@ -136,7 +136,7 @@ def train(nparts, msample, psample, mtarget, ptarget):
         sample = flatten_sample(msample[i], psample[i])
         target = flatten_sample(mtarget[i], ptarget[i])
         dataset.addSample(sample, target)
-    # trainer = BackpropTrainer(net, dataset, momentum=0.1)
+    # trainer = BackpropTrainer(net, dataset=dataset, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
     trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
 
     print 'training...'

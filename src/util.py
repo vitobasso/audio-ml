@@ -18,6 +18,37 @@ import utilFunctions as UF
 
 output_dir = '../out/'
 
+
+def plot_wav(x):
+    plt.plot(x)
+    plt.show()
+
+
+'''
+plot spectrogram
+'''
+def plot_stft(fs, mX, N, H):
+    # create figure to plot
+    plt.figure(figsize=(6, 3))
+
+    # frequency range to plot
+    maxplotfreq = 5000.0
+
+    # plot magnitude spectrogram
+    plt.subplot(1, 1, 1)
+    numFrames = int(mX[:, 0].size)
+    frmTime = H * np.arange(numFrames) / float(fs)
+    binFreq = fs * np.arange(N * maxplotfreq / fs) / N
+    plt.pcolormesh(frmTime, binFreq, np.transpose(mX[:, :N * maxplotfreq / fs + 1]))
+    plt.xlabel('time (sec)')
+    plt.ylabel('frequency (Hz)')
+    plt.title('magnitude spectrogram')
+    plt.autoscale(tight=True)
+
+    plt.tight_layout()
+    plt.show()
+
+
 '''
 plot signal and spectrogram
 '''
@@ -50,29 +81,6 @@ def plot_wav_stft(x, fs, mX, N, H):
     plt.tight_layout()
     plt.show()
 
-'''
-plot spectrogram
-'''
-def plot_stft(fs, mX, N, H):
-    # create figure to plot
-    plt.figure(figsize=(6, 3))
-
-    # frequency range to plot
-    maxplotfreq = 5000.0
-
-    # plot magnitude spectrogram
-    plt.subplot(1, 1, 1)
-    numFrames = int(mX[:, 0].size)
-    frmTime = H * np.arange(numFrames) / float(fs)
-    binFreq = fs * np.arange(N * maxplotfreq / fs) / N
-    plt.pcolormesh(frmTime, binFreq, np.transpose(mX[:, :N * maxplotfreq / fs + 1]))
-    plt.xlabel('time (sec)')
-    plt.ylabel('frequency (Hz)')
-    plt.title('magnitude spectrogram')
-    plt.autoscale(tight=True)
-
-    plt.tight_layout()
-    plt.show()
 
 '''
 plot 1d-function updating continuously
@@ -99,6 +107,11 @@ def plot_cont(fun, xmax):
     a = anim.FuncAnimation(fig, update, frames=xmax, repeat=False)
     # reference 'a' above is needed to avoid garbage collector from removing the obj
     plt.show()
+
+
+def wavwrite(fs, x, outputfile):
+    file = output_dir + outputfile
+    UF.wavwrite(x, fs, file)
 
 
 '''
@@ -145,17 +158,24 @@ def loadnet(filename):
     return NetworkReader.readFrom(file)
 
 
-def split_sub(matrix, length):
+def split_spec_sub(matrix, length):
     n = len(matrix)/length
     parts = np.empty((n, length, matrix.shape[1]))
     for i in np.arange(0, n):
         parts[i] = matrix[i*length:(i+1)*length]
     return parts
 
-def split(mX, pX, length):
-    mXparts = split_sub(mX, length)
-    pXparts = split_sub(pX, length)
+def split_spec(mX, pX, length):
+    mXparts = split_spec_sub(mX, length)
+    pXparts = split_spec_sub(pX, length)
     return mXparts, pXparts
+
+def split_wav(x, length):
+    n = len(x)/length
+    parts = np.empty((n, length))
+    for i in np.arange(0, n):
+        parts[i] = x[i*length:(i+1)*length]
+    return parts
 
 def resize(fs, x, tsec):
     tsamples = tsec * fs
