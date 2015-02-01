@@ -6,6 +6,7 @@
    - recurrent network: unsupervised training on sequence
 
 # pre process
+   - standard rate (44100) and 1 channel
    - normalize phase
    - cut silences
 
