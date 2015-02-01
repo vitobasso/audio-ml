@@ -55,7 +55,7 @@ def loadspec(soundfile, len):
 
 def loadnorm(soundfile, len):
     fs, x, mX, pX = loadspec(soundfile, len)
-    mXnorm, avg, std = normalize(mX)
+    mXnorm, avg, std = normalize_gauss(mX)
     return fs, x, mXnorm, pX, avg, std
 
 def mix(fs1, x1, fs2, x2):
@@ -66,7 +66,7 @@ def mix(fs1, x1, fs2, x2):
 
 def mixnorm(fs1, x1, fs2, x2):
     fs, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
-    mXnorm, avg, std = normalize(mXmix)
+    mXnorm, avg, std = normalize_gauss(mXmix)
     return fs, xmix, mXnorm, pXmix, avg, std
 
 def flatten_sample(v1, v2):
@@ -164,6 +164,6 @@ def test(net, fs, nparts, mXparts, pXparts, avg, std):
 
 fs, nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset()
 net = train(nparts, msample, psample, mtarget, ptarget)
-# fs, nparts, msample, psample, mtarget, ptarget = prepare_dataset(5)
-# net = loadnet('net_2015-01-31T18:34:08')
+# fs, nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset(5)
+# net = loadnet('net_5140_3.156083_2015-01-31T22:48:39')
 test(net, fs, nparts, msample, psample, avg, std)

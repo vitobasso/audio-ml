@@ -18,7 +18,7 @@ soundfile2 = smstools_home + "/sounds/cello-double.wav"
 
 # dataset
 trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
-partlen = 1000 # num of samples to input to the net
+partlen = 5140 # num of samples to input to the net
 
 # training
 epochs = 100
@@ -36,7 +36,7 @@ def loadspec(soundfile, len):
 
 def loadnorm(soundfile, len):
     fs, x = loadspec(soundfile, len)
-    xnorm, avg, std = normalize(x)
+    xnorm, avg, std = normalize_maxmin(x)
     return fs, xnorm, avg, std
 
 def mix(fs1, x1, fs2, x2):
@@ -46,7 +46,7 @@ def mix(fs1, x1, fs2, x2):
 
 def mixnorm(fs1, x1, fs2, x2):
     fs, xmix = mix(fs1, x1, fs2, x2)
-    xnorm, avg, std = normalize(xmix)
+    xnorm, avg, std = normalize_maxmin(xmix)
     return fs, xnorm, avg, std
 
 def prepare_dataset(soundlen=trainsoundlen):
@@ -123,11 +123,11 @@ def test(net, fs, nparts, parts, avg, std):
     wavwrite(fs, xunnorm, outputfile='output.wav')
 
 
-# fs, nparts, sample, target, avg, std = prepare_dataset()
-# net = train(nparts, sample, target)
-# fs, nparts, sample, target = prepare_dataset(5)
-# net = loadnet('net_2015-01-31T18:34:08')
-# test(net, fs, nparts, sample, avg, std)
+fs, nparts, sample, target, avg, std = prepare_dataset()
+net = train(nparts, sample, target)
+# fs, nparts, sample, target, avg, std = prepare_dataset(5)
+# net = loadnet('net_1000_0.035637_2015-01-31T22:44:41')
+test(net, fs, nparts, sample, avg, std)
 
-fs, x, avg, std = loadnorm(soundfile1, 5)
-show(fs, x)
+# fs, x, avg, std = loadnorm(soundfile1, 5)
+# show(fs, x)

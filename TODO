@@ -4,10 +4,9 @@
 
 # strategy
    - recurrent network: unsupervised training on sequence
-   - raw signal as input
 
 # pre process
-   - normalize
+   - normalize phase
    - cut silences
 
 
