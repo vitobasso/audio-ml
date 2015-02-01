@@ -21,7 +21,7 @@ output_dir = '../out/'
 '''
 plot signal and spectrogram
 '''
-def plot_stft(x, fs, mX, N, H):
+def plot_wav_stft(x, fs, mX, N, H):
     # create figure to plot
     plt.figure(figsize=(12, 9))
 
@@ -133,9 +133,9 @@ def wait_sound(ch):
         time.sleep(1)
 
 
-def savenet(net, width):
+def savenet(net, width, err):
     timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S')
-    file = '%snet_%d_%s' % (output_dir, width, timestamp)
+    file = '%snet_%d_%f_%s' % (output_dir, width, err, timestamp)
     NetworkWriter.writeToFile(net, file)
 
 
@@ -164,3 +164,13 @@ def resize(fs, x, tsec):
     else:
         rep = tsamples/len(x) + 1
         return np.tile(x, rep)[:tsamples]
+
+def normalize(mX):
+    avg = np.average(mX)
+    std = np.std(mX)
+    mXnorm = (mX - avg) / std
+    return mXnorm, avg, std
+
+def unnormalize(mXnorm, avg, std):
+    mX = mXnorm * std + avg
+    return mX

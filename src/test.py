@@ -4,9 +4,10 @@ from scipy.signal import get_window
 
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain import FeedForwardNetwork, LinearLayer, SigmoidLayer, FullConnection, IdentityConnection
+from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, IdentityConnection, TanhLayer
 
 from util import *
+
 
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
@@ -42,7 +43,7 @@ def show(fs, X):
 def write(fs, mX, pX, outputfile):
     specwrite(fs, mX, pX, M, H, outputfile=outputfile)
 
-def loadspec(soundfile, len=5):
+def loadspec(soundfile, len):
     print 'loading wav:', soundfile, 'len:', len
     fs, x = UF.wavread(soundfile)
     x = resize(fs, x, len)
@@ -52,11 +53,21 @@ def loadspec(soundfile, len=5):
     # X freq size ~ fft size / 2)
     return fs, x, mX, pX
 
+def loadnorm(soundfile, len):
+    fs, x, mX, pX = loadspec(soundfile, len)
+    mXnorm, avg, std = normalize(mX)
+    return fs, x, mXnorm, pX, avg, std
+
 def mix(fs1, x1, fs2, x2):
     assert fs1 == fs2
     xmix = np.add(0.5*x1, 0.5*x2)
     mXmix, pXmix = stft.stftAnal(xmix, fs1, w, N, H)
     return fs1, xmix, mXmix, pXmix
+
+def mixnorm(fs1, x1, fs2, x2):
+    fs1, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
+    mXnorm, avg, std = normalize(mXmix)
+    return fs1, xmix, mXnorm, pXmix, avg, std
 
 def flatten_sample(v1, v2):
     res1 = np.reshape(v1, flatwidth)
@@ -74,22 +85,22 @@ def unflatten_sample(v):
 def prepare_dataset(soundlen=trainsoundlen):
 
     # load and mix
-    fs1, x1, mX1, pX1 = loadspec(soundfile1, len=soundlen)
-    fs2, x2, mX2, pX2 = loadspec(soundfile2, len=soundlen)
+    fs1, x1, mX1, pX1, avg1, std1 = loadnorm(soundfile1, len=soundlen)
+    fs2, x2, mX2, pX2, avg2, std2 = loadnorm(soundfile2, len=soundlen)
     assert fs1 == fs2
-    fsmix, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
-    # write(fsmix, mXmix, pXmix, outputfile='mix.wav')
+    fs3, x3, mX3, pX3, avg3, std3 = mixnorm(fs1, x1, fs2, x2)
+    # write(fs3, mX3, pX3, outputfile='mix.wav')
     # write(fs2, mX1, pX1, outputfile='target.wav')
     # play('mix.wav', sync=True)
-    # show(fs2, mXmix)
+    # show(fs2, mX3)
 
     # split parts
-    mXtargetparts, pXtargetparts = split(mX1, pX1, partlen)
-    mXmixparts, pXmixparts = split(mXmix, pXmix, partlen)
-    assert len(mXtargetparts) == len(mXmixparts) == len(pXtargetparts) == len(pXmixparts)
-    nparts = len(mXtargetparts)
+    mXtarget_parts, pXtarget_parts = split(mX1, pX1, partlen)
+    mXmix_parts, pXmix_parts = split(mX3, pX3, partlen)
+    assert len(mXtarget_parts) == len(mXmix_parts) == len(pXtarget_parts) == len(pXmix_parts)
+    nparts = len(mXtarget_parts)
 
-    return fs1, nparts, mXmixparts, pXmixparts, mXtargetparts, pXtargetparts
+    return fs1, nparts, mXmix_parts, pXmix_parts, mXtarget_parts, pXtarget_parts, avg3, std3
 
 
 def build_net(width):
@@ -98,19 +109,18 @@ def build_net(width):
     # layers
     net.addInputModule(LinearLayer(width, name='in'))
     net.addOutputModule(LinearLayer(width, name='out'))
-    net.addModule(SigmoidLayer(50, name='h1'))
-    net.addModule(SigmoidLayer(20, name='h2'))
+    net.addModule(TanhLayer(50, name='h1'))
+    # net.addModule(TanhLayer(20, name='h2'))
     # net.addModule(SigmoidLayer(10, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
-    net.addConnection(FullConnection(net['h1'], net['h2']))
+    # net.addConnection(FullConnection(net['h1'], net['h2']))
     # net.addConnection(FullConnection(net['h1'], net['h3']))
     net.addConnection(FullConnection(net['h1'], net['out']))
     # net.addConnection(FullConnection(net['h2'], net['h3']))
-    net.addConnection(FullConnection(net['h2'], net['out']))
+    # net.addConnection(FullConnection(net['h2'], net['out']))
     # net.addConnection(FullConnection(net['h3'], net['out']))
-    net.addConnection(FullConnection(net['h1'], net['out']))
     net.addConnection(IdentityConnection(net['in'], net['out']))
 
     net.sortModules()
@@ -127,17 +137,18 @@ def train(nparts, msample, psample, mtarget, ptarget):
         target = flatten_sample(mtarget[i], ptarget[i])
         dataset.addSample(sample, target)
     # trainer = BackpropTrainer(net, dataset, momentum=0.1)
-    trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=.001)
+    trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
 
     print 'training...'
     plot_cont(trainer.train, epochs)
 
     print 'saving net...'
-    savenet(trainer.module, netwidth)
+    err = trainer.train() # train an extra time just to get the final error
+    savenet(trainer.module, netwidth, err)
     return net
 
 
-def test(net, fs, nparts, mXparts, pXparts):
+def test(net, fs, nparts, mXparts, pXparts, avg, std):
     print 'testing...'
     mXresult = np.empty((partlen, freqrange))
     pXresult = np.empty((partlen, freqrange))
@@ -147,11 +158,12 @@ def test(net, fs, nparts, mXparts, pXparts):
         mXpart, pXpart = unflatten_sample(netout)
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
-    write(fs, mXresult, pXresult, outputfile='output.wav')
+    mXunnorm = unnormalize(mXresult, avg, std)
+    write(fs, mXunnorm, pXresult, outputfile='output.wav')
 
 
-fs, nparts, msample, psample, mtarget, ptarget = prepare_dataset()
+fs, nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset()
 net = train(nparts, msample, psample, mtarget, ptarget)
 # fs, nparts, msample, psample, mtarget, ptarget = prepare_dataset(5)
 # net = loadnet('net_2015-01-31T18:34:08')
-test(net, fs, nparts, msample, psample)
+test(net, fs, nparts, msample, psample, avg, std)
