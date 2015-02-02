@@ -1,6 +1,10 @@
 # convert to wav
 ffmpeg -i <input> <output>.wav
 
+# convert to mono 44100
+sox <input> -c 1 -r 44100 <output>
+ffmpeg -i <input> -ac 1 -ar 44100 <output>
+
 # find all aif/mp3/flac
 find . -name *.aif -o -name *.mp3 -o -name *.flac
 
@@ -13,3 +17,13 @@ find . -name *.mp3 | xargs rm
 # sound info
 # options: -t (format), -r (sample rate), -c (channels), -s (num samples), -d (duration)
 soxi <file>
+
+# convert all to mono 44100 (create new files w/ "_2" appended)
+ls | sed 'p;s/.w/_2.w/' | xargs -i -n2 sox {} -c 1 -r 44100 {}
+
+# convert all to mono 44100 wav
+for a in $(ls)
+do
+    #TODO
+    echo $a
+done
