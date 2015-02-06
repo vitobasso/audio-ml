@@ -10,6 +10,7 @@
    - standard rate (44100) and 1 channel
    - normalize phase
    - cut silences
+   - normalize volume
 
 
 

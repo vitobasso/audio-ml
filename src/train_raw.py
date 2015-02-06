@@ -9,7 +9,7 @@ from util import *
 
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
-import utilFunctions as UF
+import utilFunctions as uf
 
 
 # files
@@ -30,7 +30,7 @@ def show(fs, x):
 
 def loadspec(soundfile, len):
     print 'loading wav:', soundfile, 'len:', len
-    fs, x = UF.wavread(soundfile)
+    fs, x = uf.wavread(soundfile)
     x = resize(fs, x, len)
     return fs, x
 

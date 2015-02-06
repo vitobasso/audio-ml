@@ -14,7 +14,7 @@ from pybrain.tools.xml import NetworkWriter, NetworkReader
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
 import stft
-import utilFunctions as UF
+import utilFunctions as uf
 
 output_dir = '../out/'
 
@@ -109,9 +109,9 @@ def plot_cont(fun, xmax):
     plt.show()
 
 
-def wavwrite(fs, x, outputfile):
+def wavwrite(x, fs=44100, outputfile='output.wav'):
     file = output_dir + outputfile
-    UF.wavwrite(x, fs, file)
+    uf.wavwrite(x, fs, file)
 
 
 '''
@@ -125,7 +125,7 @@ H: hop size
 def specwrite(fs, mX, pX, M, H, outputfile='output.wav'):
     file = output_dir + outputfile
     x = stft.stftSynth(mX, pX, M, H)
-    UF.wavwrite(x, fs, file)
+    uf.wavwrite(x, fs, file)
 
 
 def play(soundfile='output.wav', sync=False):

@@ -12,7 +12,7 @@ from util import *
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
 import stft
-import utilFunctions as UF
+import utilFunctions as uf
 
 
 # files
@@ -45,7 +45,7 @@ def write(fs, mX, pX, outputfile):
 
 def loadspec(soundfile, len):
     print 'loading wav:', soundfile, 'len:', len
-    fs, x = UF.wavread(soundfile)
+    fs, x = uf.wavread(soundfile)
     x = resize(fs, x, len)
     w = get_window("hamming", M)
     mX, pX = stft.stftAnal(x, fs, w, N, H)
