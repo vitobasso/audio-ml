@@ -54,8 +54,8 @@ class Packet:
     def __init__(self, folderName, chunkSize):
         self.path = samplesroot + folderName + '/'
         self.map = mapFiles(self.path)
-        self.length = totalLength(self.map)
-        self.chunksize = chunkSize
+        self.length = totalLength(self.map) / chunkSize
+        self.chunkSize = chunkSize
 
     def seek(self, i):
         current = 0
@@ -68,8 +68,8 @@ class Packet:
         raise IndexError
 
     def readChunk(self, i):
-        begin = i * self.chunksize
-        end = begin + self.chunksize
+        begin = i * self.chunkSize
+        end = begin + self.chunkSize
         first, beginIndex = self.seek(begin)
         last, endIndex = self.seek(end)
 
@@ -95,6 +95,7 @@ class DatasetMixer:
     def __init__(self, folderName1, folderName2, chunkSize):
         self.packet1 = Packet(folderName1, chunkSize)
         self.packet2 = Packet(folderName2, chunkSize)
+        self.length = min(self.packet1.length, self.packet2.length)
 
     def readChunk(self, i):
         x1 = self.packet1.readChunk(i)
@@ -106,5 +107,3 @@ mixer = DatasetMixer('guitar', 'drums', 200000)
 x = mixer.readChunk(10)
 util.wavwrite(x)
 util.play(sync=True)
-# TODO check each packet's length
-# TODO randomize
