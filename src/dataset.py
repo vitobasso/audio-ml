@@ -6,6 +6,7 @@ import contextlib
 from fourrier import *
 from normalize import *
 
+
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
 import utilFunctions as uf
@@ -125,12 +126,11 @@ class PacketMixer:
 
 class SpectrumPacket:
 
-    def __init__(self, rawPacket, stftSize=512, normalized=True):
+    def __init__(self, rawPacket, fourrier=Fourrier(512), normalized=True):
+        self.fourrier = fourrier
         self.raw = rawPacket
-        self.length = rawPacket.length / stftSize
-        self.stftSize = stftSize
-        self.chunkSize = rawPacket.chunkSize / stftSize
-        self.fourrier = Fourrier(stftSize)
+        self.length = rawPacket.length
+        self.chunkSize = rawPacket.chunkSize / self.fourrier.H
         self.normalized = normalized
 
     def chunk(self, i):
@@ -141,11 +141,11 @@ class SpectrumPacket:
         return mX, pX
 
 
-mixer = PacketMixer('violin', 'piano', 5*fs)
-spect = SpectrumPacket(mixer)
-
-mX, pX = spect.chunk(0)
-mX = unnormalize_static(mX)
-spect.fourrier.write(mX, pX)
-play(sync=True)
+# mixer = PacketMixer('violin', 'piano', 5*fs)
+# spect = SpectrumPacket(mixer)
+#
+# mX, pX = spect.chunk(0)
+# mX = unnormalize_static(mX)
+# spect.fourrier.write(mX, pX)
+# play(sync=True)
 

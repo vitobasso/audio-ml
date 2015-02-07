@@ -9,17 +9,16 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstoo
 import stft
 
 
-
-
-
 class Fourrier:
 
     def __init__(self, N=512):
-        self.N = N # dft size (window + zero padding)
+        self.N = N # fft size (window + zero padding)
         self.M = N-1 # window size
         self.H = (self.M+1)/2 # stft hop size
         self.w = get_window("hamming", self.M)
         self.freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
+        # X time size ~ len x / hop size
+        # X freq size ~ fft size / 2
 
     def analysis(self, x):
         return stft.stftAnal(x, fs, self.w, self.N, self.H)
