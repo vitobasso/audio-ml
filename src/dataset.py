@@ -16,6 +16,7 @@ samplesroot = '../../_dependencies/sound-samples/'
 expected_fmt = dict(rate=44100, swidth=2, ch=1, compr='not compressed')
 
 
+
 def wavLength(file):
     with contextlib.closing(wave.open(file,'r')) as f:
         return f.getnframes()
