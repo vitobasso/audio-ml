@@ -1,12 +1,10 @@
 __author__ = 'victor'
 
-from scipy.signal import get_window
-
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer
 
-from util import *
+from fourrier import *
 
 
 smstools_home = "../../_dependencies/sms-tools"
@@ -18,13 +16,6 @@ import utilFunctions as uf
 # files
 soundfile1 = smstools_home + "/sounds/singing-female.wav"
 soundfile2 = smstools_home + "/sounds/cello-double.wav"
-
-# stft
-N = 512 # dft size (window + zero padding)
-M = N-1 # window size
-H = (M+1)/2 # stft hop size
-w = get_window("hamming", M)
-freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
 
 # dataset
 trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
