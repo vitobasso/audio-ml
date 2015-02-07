@@ -5,6 +5,7 @@ import contextlib
 
 from fourrier import *
 from normalize import *
+from cache import LRUCache
 
 
 smstools_home = "../../_dependencies/sms-tools"
@@ -21,9 +22,14 @@ def wavLength(file):
     with contextlib.closing(wave.open(file,'r')) as f:
         return f.getnframes()
 
+
+cache = LRUCache(3)
 def readPart(file, begin, end):
-    # TODO for efficiency, cache the wav in memory or use low level random access w/ the wave module
-    fs, x = uf.wavread(file)
+    x = cache.get(file)
+    if x is None:
+        print 'loading: ' + file
+        fs, x = uf.wavread(file)
+        cache.set(file, x)
     return x[begin:end]
 
 

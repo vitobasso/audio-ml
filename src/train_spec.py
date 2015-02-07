@@ -3,7 +3,7 @@ __author__ = 'victor'
 from pybrain.datasets import SupervisedDataSet
 
 from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer
+from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer, IdentityConnection
 
 from dataset import *
 
@@ -16,6 +16,7 @@ freqrange = fourrier.freqrange
 rawlen = speclen * fourrier.H
 
 # training
+nparts = 100
 epochs = 100
 flatwidth = speclen * freqrange
 netwidth = 2 * flatwidth # num of units in the input and output layers (magnitudes and phases)
@@ -41,29 +42,29 @@ def build_net(width):
     net.addInputModule(LinearLayer(width, name='in'))
     net.addOutputModule(LinearLayer(width, name='out'))
     net.addModule(TanhLayer(50, name='h1'))
-    # net.addModule(TanhLayer(20, name='h2'))
+    net.addModule(TanhLayer(20, name='h2'))
     # net.addModule(SigmoidLayer(10, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
-    # net.addConnection(FullConnection(net['h1'], net['h2']))
+    net.addConnection(FullConnection(net['h1'], net['h2']))
     # net.addConnection(FullConnection(net['h1'], net['h3']))
     net.addConnection(FullConnection(net['h1'], net['out']))
     # net.addConnection(FullConnection(net['h2'], net['h3']))
-    # net.addConnection(FullConnection(net['h2'], net['out']))
+    net.addConnection(FullConnection(net['h2'], net['out']))
     # net.addConnection(FullConnection(net['h3'], net['out']))
-    # net.addConnection(IdentityConnection(net['in'], net['out']))
+    net.addConnection(IdentityConnection(net['in'], net['out']))
 
     net.sortModules()
     return net
 
 
-def train(nSamples, mixStream, targetStream):
+def train(nparts, mixStream, targetStream):
 
-    print 'preparing to train, nSamples=%d, netwidth=%d' % (nSamples, netwidth)
+    print 'preparing to train, nSamples=%d, netwidth=%d' % (nparts, netwidth)
     net = build_net(netwidth)
     dataset = SupervisedDataSet(netwidth, netwidth)
-    for i in np.arange(nSamples):
+    for i in np.arange(nparts):
         sample = flatten(*mixStream.chunk(i))
         target = flatten(*targetStream.chunk(i))
         dataset.addSample(sample, target)
@@ -97,6 +98,5 @@ mixer = PacketMixer('acapella', 'piano', rawlen)
 mixSpec = SpectrumPacket(mixer, fourrier)
 tarSpec = SpectrumPacket(mixer.packet1, fourrier)
 
-nSamples = 100
-net = train(nSamples, mixSpec, tarSpec)
-test(net, nSamples, mixSpec)
+net = train(nparts, mixSpec, tarSpec)
+test(net, nparts, mixSpec)
