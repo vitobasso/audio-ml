@@ -1,24 +1,19 @@
-
 __author__ = 'victor'
 
-import os
-import sys
 import wave
 import contextlib
 
-import numpy as np
-
-import util
-
+from fourrier import *
+from normalize import *
 
 smstools_home = "../../_dependencies/sms-tools"
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
 import utilFunctions as uf
 
 
-
 samplesroot = '../../_dependencies/sound-samples/'
 expected_fmt = dict(rate=44100, swidth=2, ch=1, compr='not compressed')
+
 
 def wavLength(file):
     with contextlib.closing(wave.open(file,'r')) as f:
@@ -45,6 +40,29 @@ def totalLength(map):
         total += length
     return total
 
+def wavstat(foldername):
+    '''
+    Compute statistics about the files
+    '''
+    folderpath = samplesroot + foldername
+    allx = np.array([])
+    for path, dirs, files in os.walk(folderpath):
+        for f in files:
+            fpath = folderpath + '/' + f
+            fs, x = uf.wavread(fpath)
+            allx = np.append(allx, x)
+    print np.average(allx), np.std(allx), np.min(allx), np.max(allx)
+
+
+#                   spectrogram     raw signal
+#                   mean    std     mean    std
+# guitar:           -72     23      -3e-05  0.02
+# drums:            -70     22      8e-6    0.2
+# piano:            -94     19      3e-6    0.08
+# acapella:         -83     18      -6e-4   0.1
+# violin:           -87     23      -8e-05  0.09
+
+
 
 class Packet:
     '''
@@ -67,7 +85,7 @@ class Packet:
             current = next
         raise IndexError
 
-    def readChunk(self, i):
+    def chunk(self, i):
         begin = i * self.chunkSize
         end = begin + self.chunkSize
         first, beginIndex = self.seek(begin)
@@ -90,20 +108,44 @@ class Packet:
         return chunk
 
 
-class DatasetMixer:
+class PacketMixer:
 
     def __init__(self, folderName1, folderName2, chunkSize):
         self.packet1 = Packet(folderName1, chunkSize)
         self.packet2 = Packet(folderName2, chunkSize)
         self.length = min(self.packet1.length, self.packet2.length)
+        self.chunkSize = chunkSize
 
-    def readChunk(self, i):
-        x1 = self.packet1.readChunk(i)
-        x2 = self.packet2.readChunk(i)
+    def chunk(self, i):
+        x1 = self.packet1.chunk(i)
+        x2 = self.packet2.chunk(i)
         return np.add(0.5*x1, 0.5*x2)
 
 
-mixer = DatasetMixer('guitar', 'drums', 200000)
-x = mixer.readChunk(10)
-util.wavwrite(x)
-util.play(sync=True)
+
+class SpectrumPacket:
+
+    def __init__(self, rawPacket, stftSize=512, normalized=True):
+        self.raw = rawPacket
+        self.length = rawPacket.length / stftSize
+        self.stftSize = stftSize
+        self.chunkSize = rawPacket.chunkSize / stftSize
+        self.fourrier = Fourrier(stftSize)
+        self.normalized = normalized
+
+    def chunk(self, i):
+        x = self.raw.chunk(i)
+        mX, pX = self.fourrier.analysis(x)
+        if(self.normalized):
+            mX = normalize_static(mX)
+        return mX, pX
+
+
+mixer = PacketMixer('violin', 'piano', 5*fs)
+spect = SpectrumPacket(mixer)
+
+mX, pX = spect.chunk(0)
+mX = unnormalize_static(mX)
+spect.fourrier.write(mX, pX)
+play(sync=True)
+

@@ -7,10 +7,13 @@
    - mini batch
 
 # pre process
-   - standard rate (44100) and 1 channel
-   - normalize phase
-   - cut silences
-   - normalize volume
+   - files
+      - cut silences
+      - normalize volume
+   - input stream
+      - scale w/ variance (instead of std)
+      - normalize phase
+      - PCA normalize
 
 # dataset
    - randomize, create more combinations

@@ -185,19 +185,3 @@ def resize(x, tsec):
     else:
         rep = tsamples/len(x) + 1
         return np.tile(x, rep)[:tsamples]
-
-def normalize_gauss(mX):
-    avg = np.average(mX)
-    std = np.std(mX)
-    mXnorm = (mX - avg) / std
-    return mXnorm, avg, std
-
-def normalize_maxmin(mX):
-    avg = np.average(mX)
-    std = 0.5 * (np.max(mX) - np.min(mX))
-    mXnorm = (mX - avg) / std
-    return mXnorm, avg, std
-
-def unnormalize(mXnorm, avg, std):
-    mX = mXnorm * std + avg
-    return mX

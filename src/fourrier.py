@@ -10,13 +10,24 @@ import stft
 
 
 
-# stft
-N = 512 # dft size (window + zero padding)
-M = N-1 # window size
-H = (M+1)/2 # stft hop size
-w = get_window("hamming", M)
-freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
 
 
-def fourier(x):
-    return stft.stftAnal(x, fs, w, N, H)
+class Fourrier:
+
+    def __init__(self, N=512):
+        self.N = N # dft size (window + zero padding)
+        self.M = N-1 # window size
+        self.H = (self.M+1)/2 # stft hop size
+        self.w = get_window("hamming", self.M)
+        self.freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
+
+    def analysis(self, x):
+        return stft.stftAnal(x, fs, self.w, self.N, self.H)
+
+    def synth(self, mX, pX):
+        return stft.stftSynth(mX, pX, self.M, self.H)
+
+    def write(self, mX, pX, outputfile='output.wav'):
+        file = output_dir + outputfile
+        x = stft.stftSynth(mX, pX, self.M, self.H)
+        uf.wavwrite(x, fs, file)

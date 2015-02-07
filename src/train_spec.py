@@ -5,6 +5,7 @@ from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer
 
 from fourrier import *
+from normalize import *
 
 
 smstools_home = "../../_dependencies/sms-tools"
