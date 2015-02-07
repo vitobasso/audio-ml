@@ -17,6 +17,7 @@ import stft
 import utilFunctions as uf
 
 output_dir = '../out/'
+fs = 44100
 
 
 def plot_wav(x):
@@ -27,7 +28,7 @@ def plot_wav(x):
 '''
 plot spectrogram
 '''
-def plot_stft(fs, mX, N, H):
+def plot_stft(mX, N, H):
     # create figure to plot
     plt.figure(figsize=(6, 3))
 
@@ -52,7 +53,7 @@ def plot_stft(fs, mX, N, H):
 '''
 plot signal and spectrogram
 '''
-def plot_wav_stft(x, fs, mX, N, H):
+def plot_wav_stft(x, mX, N, H):
     # create figure to plot
     plt.figure(figsize=(12, 9))
 
@@ -109,7 +110,7 @@ def plot_cont(fun, xmax):
     plt.show()
 
 
-def wavwrite(x, fs=44100, outputfile='output.wav'):
+def wavwrite(x, outputfile='output.wav'):
     file = output_dir + outputfile
     uf.wavwrite(x, fs, file)
 
@@ -122,7 +123,7 @@ pX: phase spectrum
 M: window size
 H: hop size
 '''
-def specwrite(fs, mX, pX, M, H, outputfile='output.wav'):
+def specwrite(mX, pX, M, H, outputfile='output.wav'):
     file = output_dir + outputfile
     x = stft.stftSynth(mX, pX, M, H)
     uf.wavwrite(x, fs, file)
@@ -177,7 +178,7 @@ def split_wav(x, length):
         parts[i] = x[i*length:(i+1)*length]
     return parts
 
-def resize(fs, x, tsec):
+def resize(x, tsec):
     tsamples = tsec * fs
     if(len(x) >= tsamples):
         return x[:tsamples]

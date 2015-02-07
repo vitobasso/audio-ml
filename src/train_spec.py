@@ -36,38 +36,37 @@ flatwidth = partlen * freqrange
 netwidth = 2 * flatwidth # num of units in the input and output layers (magnitudes and phases)
 
 
-def show(fs, X):
+def show(X):
     print X.shape
-    plot_stft(fs, X, N, H)
+    plot_stft(X, N, H)
 
-def write(fs, mX, pX, outputfile):
-    specwrite(fs, mX, pX, M, H, outputfile=outputfile)
+def write(mX, pX, outputfile):
+    specwrite(mX, pX, M, H, outputfile=outputfile)
 
 def loadspec(soundfile, len):
     print 'loading wav:', soundfile, 'len:', len
     fs, x = uf.wavread(soundfile)
-    x = resize(fs, x, len)
+    x = resize(x, len)
     w = get_window("hamming", M)
     mX, pX = stft.stftAnal(x, fs, w, N, H)
     # X time size ~ len x / hop size
     # X freq size ~ fft size / 2)
-    return fs, x, mX, pX
+    return x, mX, pX
 
 def loadnorm(soundfile, len):
-    fs, x, mX, pX = loadspec(soundfile, len)
+    x, mX, pX = loadspec(soundfile, len)
     mXnorm, avg, std = normalize_gauss(mX)
-    return fs, x, mXnorm, pX, avg, std
+    return x, mXnorm, pX, avg, std
 
-def mix(fs1, x1, fs2, x2):
-    assert fs1 == fs2
+def mix(x1, x2):
     xmix = np.add(0.5*x1, 0.5*x2)
-    mXmix, pXmix = stft.stftAnal(xmix, fs1, w, N, H)
-    return fs1, xmix, mXmix, pXmix
+    mXmix, pXmix = stft.stftAnal(xmix, fs, w, N, H)
+    return xmix, mXmix, pXmix
 
-def mixnorm(fs1, x1, fs2, x2):
-    fs, xmix, mXmix, pXmix = mix(fs1, x1, fs2, x2)
+def mixnorm(x1, x2):
+    xmix, mXmix, pXmix = mix(x1, x2)
     mXnorm, avg, std = normalize_gauss(mXmix)
-    return fs, xmix, mXnorm, pXmix, avg, std
+    return xmix, mXnorm, pXmix, avg, std
 
 def flatten_sample(v1, v2):
     res1 = np.reshape(v1, flatwidth)
@@ -85,14 +84,13 @@ def unflatten_sample(v):
 def prepare_dataset(soundlen=trainsoundlen):
 
     # load and mix
-    fs1, x1, mX1, pX1, avg1, std1 = loadnorm(soundfile1, len=soundlen)
-    fs2, x2, mX2, pX2, avg2, std2 = loadnorm(soundfile2, len=soundlen)
-    assert fs1 == fs2
-    fs3, x3, mX3, pX3, avg3, std3 = mixnorm(fs1, x1, fs2, x2)
-    # write(fs3, mX3, pX3, outputfile='mix.wav')
-    # write(fs2, mX1, pX1, outputfile='target.wav')
+    x1, mX1, pX1, avg1, std1 = loadnorm(soundfile1, len=soundlen)
+    x2, mX2, pX2, avg2, std2 = loadnorm(soundfile2, len=soundlen)
+    x3, mX3, pX3, avg3, std3 = mixnorm(x1, x2)
+    # write(mX3, pX3, outputfile='mix.wav')
+    # write(mX1, pX1, outputfile='target.wav')
     # play('mix.wav', sync=True)
-    # show(fs2, mX3)
+    # show(mX3)
 
     # split parts
     mXtarget_parts, pXtarget_parts = split_spec(mX1, pX1, partlen)
@@ -100,7 +98,7 @@ def prepare_dataset(soundlen=trainsoundlen):
     assert len(mXtarget_parts) == len(mXmix_parts) == len(pXtarget_parts) == len(pXmix_parts)
     nparts = len(mXtarget_parts)
 
-    return fs1, nparts, mXmix_parts, pXmix_parts, mXtarget_parts, pXtarget_parts, avg3, std3
+    return nparts, mXmix_parts, pXmix_parts, mXtarget_parts, pXtarget_parts, avg3, std3
 
 
 def build_net(width):
@@ -148,7 +146,7 @@ def train(nparts, msample, psample, mtarget, ptarget):
     return net
 
 
-def test(net, fs, nparts, mXparts, pXparts, avg, std):
+def test(net, nparts, mXparts, pXparts, avg, std):
     print 'testing...'
     mXresult = np.empty((partlen, freqrange))
     pXresult = np.empty((partlen, freqrange))
@@ -159,11 +157,11 @@ def test(net, fs, nparts, mXparts, pXparts, avg, std):
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
     mXunnorm = unnormalize(mXresult, avg, std)
-    write(fs, mXunnorm, pXresult, outputfile='output.wav')
+    write(mXunnorm, pXresult, outputfile='output.wav')
 
 
-fs, nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset()
+nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset()
 net = train(nparts, msample, psample, mtarget, ptarget)
-# fs, nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset(5)
+# nparts, msample, psample, mtarget, ptarget, avg, std = prepare_dataset(5)
 # net = loadnet('net_5140_3.156083_2015-01-31T22:48:39')
-test(net, fs, nparts, msample, psample, avg, std)
+test(net, nparts, msample, psample, avg, std)

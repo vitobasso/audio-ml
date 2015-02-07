@@ -24,42 +24,40 @@ partlen = 5140 # num of samples to input to the net
 epochs = 100
 
 
-def show(fs, x):
-    print fs, x.shape
+def show(x):
+    print x.shape
     plot_wav(x)
 
 def loadspec(soundfile, len):
     print 'loading wav:', soundfile, 'len:', len
     fs, x = uf.wavread(soundfile)
-    x = resize(fs, x, len)
-    return fs, x
+    x = resize(x, len)
+    return x
 
 def loadnorm(soundfile, len):
-    fs, x = loadspec(soundfile, len)
+    x = loadspec(soundfile, len)
     xnorm, avg, std = normalize_maxmin(x)
-    return fs, xnorm, avg, std
+    return xnorm, avg, std
 
-def mix(fs1, x1, fs2, x2):
-    assert fs1 == fs2
+def mix(x1, x2):
     xmix = np.add(0.5*x1, 0.5*x2)
-    return fs1, xmix
+    return xmix
 
-def mixnorm(fs1, x1, fs2, x2):
-    fs, xmix = mix(fs1, x1, fs2, x2)
+def mixnorm(x1, x2):
+    xmix = mix(x1, x2)
     xnorm, avg, std = normalize_maxmin(xmix)
-    return fs, xnorm, avg, std
+    return xnorm, avg, std
 
 def prepare_dataset(soundlen=trainsoundlen):
 
     # load and mix
-    fs1, x1, avg1, std1 = loadnorm(soundfile1, len=soundlen)
-    fs2, x2, avg2, std2 = loadnorm(soundfile2, len=soundlen)
-    assert fs1 == fs2
-    fs3, x3, avg3, std3 = mixnorm(fs1, x1, fs2, x2)
-    # wavwrite(fs3, x3, outputfile='mix.wav')
-    # wavwrite(fs2, x1, outputfile='target.wav')
+    x1, avg1, std1 = loadnorm(soundfile1, len=soundlen)
+    x2, avg2, std2 = loadnorm(soundfile2, len=soundlen)
+    x3, avg3, std3 = mixnorm(x1, x2)
+    # wavwrite(x3, outputfile='mix.wav')
+    # wavwrite(x1, outputfile='target.wav')
     # play('mix.wav', sync=True)
-    # show(fs2, x3)
+    # show(x3)
 
     # split parts
     target_parts = split_wav(x1, partlen)
@@ -67,7 +65,7 @@ def prepare_dataset(soundlen=trainsoundlen):
     assert len(target_parts) == len(mix_parts)
     nparts = len(target_parts)
 
-    return fs1, nparts, mix_parts, target_parts, avg3, std3
+    return nparts, mix_parts, target_parts, avg3, std3
 
 
 def build_net(width):
@@ -113,21 +111,21 @@ def train(nparts, sample, target):
     return net
 
 
-def test(net, fs, nparts, parts, avg, std):
+def test(net, nparts, parts, avg, std):
     print 'testing...'
     result = np.empty(partlen)
     for i in np.arange(nparts):
         netout = net.activate(parts[i])
         result = np.append(result, netout, axis=0)
     xunnorm = unnormalize(result, avg, std)
-    wavwrite(fs, xunnorm, outputfile='output.wav')
+    wavwrite(xunnorm, outputfile='output.wav')
 
 
-fs, nparts, sample, target, avg, std = prepare_dataset()
+nparts, sample, target, avg, std = prepare_dataset()
 net = train(nparts, sample, target)
-# fs, nparts, sample, target, avg, std = prepare_dataset(5)
+# nparts, sample, target, avg, std = prepare_dataset(5)
 # net = loadnet('net_1000_0.035637_2015-01-31T22:44:41')
-test(net, fs, nparts, sample, avg, std)
+test(net, nparts, sample, avg, std)
 
-# fs, x, avg, std = loadnorm(soundfile1, 5)
-# show(fs, x)
+# x, avg, std = loadnorm(soundfile1, 5)
+# show(x)
