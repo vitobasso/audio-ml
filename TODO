@@ -13,6 +13,7 @@
       - PCA normalize
 
 # dataset
+   - fix popping caused by stft borders
    - randomize begin index too
    - usar nome no seed p/ os random nao coincidir entre as partes qd mixar
 

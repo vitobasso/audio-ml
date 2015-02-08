@@ -8,15 +8,13 @@ from dataset import *
 
 
 
-
-
 # dataset
-trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
-partlen = 5140 # num of samples to input to the net
+timeWidth = 5140 # num of samples to input to the net
+mixer = MixedStream('piano', 'acapella', timeWidth)
 
 # training
-nparts = 20
-epochs = 100
+batchsize = 100
+epochs = 1000
 
 
 def build_net(width):
@@ -25,9 +23,9 @@ def build_net(width):
     # layers
     net.addInputModule(LinearLayer(width, name='in'))
     net.addOutputModule(LinearLayer(width, name='out'))
-    net.addModule(TanhLayer(20, name='h1'))
+    net.addModule(TanhLayer(100, name='h1'))
     net.addModule(TanhLayer(50, name='h2'))
-    net.addModule(TanhLayer(20, name='h3'))
+    net.addModule(TanhLayer(100, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
@@ -43,34 +41,40 @@ def build_net(width):
     return net
 
 
-def train(nparts, mix, target):
+def train(mix, target):
 
-    print 'preparing to train, nparts=%d, partlen=%d' % (nparts, partlen)
-    net = build_net(partlen)
-    dataset = SupervisedDataSet(partlen, partlen)
-    for i in np.arange(nparts):
-        dataset.addSample(mix[i], target[i])
-    # trainer = BackpropTrainer(net, dataset=dataset, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
-    trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
+    print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d' % (timeWidth, batchsize, epochs)
+    net = build_net(timeWidth)
+    # trainer = BackpropTrainer(net, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
+    trainer = RPropMinusTrainer(net, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
+
+    def train_batch(i):
+        batch = SupervisedDataSet(timeWidth, timeWidth)
+        begin = i * batchsize
+        end = begin + batchsize
+        for i in np.arange(begin, end):
+            batch.addSample(mix[i], target[i])
+        trainer.setData(batch)
+        err = trainer.train()
+        return err
 
     print 'training...'
-    plot_cont(trainer.train, epochs)
+    plot_cont(train_batch, epochs)
 
-    print 'saving net...'
-    err = trainer.train() # train an extra time just to get the final error
-    savenet(trainer.module, partlen, err)
+    # print 'saving net...'
+    # err = trainer.train() # train an extra time just to get the final error
+    # savenet(trainer.module, partlen, err)
     return net
 
 
-def test(net, nparts, mix):
+def test(net, mix):
     print 'testing...'
-    result = np.empty(partlen)
-    for i in np.arange(nparts):
+    result = np.empty(timeWidth)
+    for i in np.arange(500):
         netout = net.activate(mix[i])
         result = np.append(result, netout, axis=0)
     wavwrite(result, outputfile='output.wav')
 
 
-mixer = MixedStream('acapella', 'piano', partlen)
-net = train(nparts, mixer, mixer.stream1)
-test(net, nparts, mixer)
+net = train(mixer, mixer.stream1)
+test(net, mixer)

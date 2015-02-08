@@ -8,7 +8,6 @@ from dataset import *
 
 
 
-
 # dataset
 timeWidth = 20 # num of spectrogram time steps to input to the net
 fourrier = Fourrier()
