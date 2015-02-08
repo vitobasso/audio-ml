@@ -4,7 +4,7 @@ import numpy as np
 
 # Approximate spectrogram magnitude statistics for all sounds in dataset
 globalAvg = -80
-globalStd = 21
+globalScale = 3 * 21 # 3 * standard deviation
 
 
 def normalize_gauss(mX):
@@ -15,22 +15,22 @@ def normalize_gauss(mX):
 
 def normalize_linear(mX):
     avg = np.average(mX)
-    std = 0.5 * (np.max(mX) - np.min(mX))
-    mXnorm = (mX - avg) / std
-    return mXnorm, avg, std
+    range = (np.max(mX) - np.min(mX)) / 2
+    mXnorm = (mX - avg) / range
+    return mXnorm, avg, range
 
 def normalize_static(mX):
     '''
     Approximate spectrogram magnitude mean and std for all sounds in dataset
     '''
-    return (mX - globalAvg) / globalStd
+    return (mX - globalAvg) / globalScale
 
 def unnormalize(mXnorm, avg, std):
     mX = mXnorm * std + avg
     return mX
 
 def unnormalize_static(mXnorm):
-    return unnormalize(mXnorm, globalAvg, globalStd)
+    return unnormalize(mXnorm, globalAvg, globalScale)
 
 
 class OnlineNorm:
