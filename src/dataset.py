@@ -71,23 +71,24 @@ def wavstat(foldername):
     Compute statistics about the files
     '''
     folderpath = samplesroot + foldername
-    allx = np.array([])
+    result = np.array([])
+    fourrier = Fourrier()
     for path, dirs, files in os.walk(folderpath):
         for f in files:
             fpath = folderpath + '/' + f
             fs, x = uf.wavread(fpath)
-            allx = np.append(allx, x)
-    print np.average(allx), np.std(allx), np.min(allx), np.max(allx)
+            mX, pX = fourrier.analysis(x)
+            result = np.append(result, pX)
+    print np.average(result), np.std(result), np.min(result), np.max(result)
 
 
-#                   spectrogram     raw signal
-#                   mean    std     mean    std
-# guitar:           -72     23      -3e-05  0.02
-# drums:            -70     22      8e-6    0.2
-# piano:            -94     19      3e-6    0.08
-# acapella:         -83     18      -6e-4   0.1
-# violin:           -87     23      -8e-05  0.09
-
+#                   mX              pX              x
+#                   mean    std     min     max     mean    std
+# guitar:           -72     23      -276    477     -3e-05  0.02
+# drums:            -70     22      -593    320     8e-6    0.2
+# piano:            -94     19                      3e-6    0.08
+# acapella:         -83     18                      -6e-4   0.1
+# violin:           -87     23                      -8e-05  0.09
 
 
 class Stream:

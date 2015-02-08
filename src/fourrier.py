@@ -21,7 +21,9 @@ class Fourrier:
         # X freq size ~ fft size / 2
 
     def analysis(self, x):
-        return stft.stftAnal(x, fs, self.w, self.N, self.H)
+        mX, pX = stft.stftAnal(x, fs, self.w, self.N, self.H)
+        pX = pX % (2 * np.pi) # undo phase unwrapping
+        return mX, pX
 
     def synth(self, mX, pX):
         return stft.stftSynth(mX, pX, self.M, self.H)

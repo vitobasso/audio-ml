@@ -10,16 +10,17 @@ from dataset import *
 
 
 
+
 # dataset
-timeWidth = 10 # num of spectrogram time steps to input to the net
+timeWidth = 20 # num of spectrogram time steps to input to the net
 fourrier = Fourrier()
-mixSpec = MixedSpectrumStream('acapella', 'piano', timeWidth, fourrier)
+mixSpec = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
 targetSpec = mixSpec.subStream1()
 flatMix = FlatStream(mixSpec)
 flatTarget = FlatStream(targetSpec)
 
 # training
-batchsize = 20
+batchsize = 10
 epochs = 1000
 sampleShape = mixSpec.shape
 netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
