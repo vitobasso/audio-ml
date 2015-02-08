@@ -9,8 +9,6 @@ from dataset import *
 
 
 
-
-
 # dataset
 timeWidth = 20 # num of spectrogram time steps to input to the net
 fourrier = Fourrier()
@@ -69,9 +67,9 @@ def train(mixStream, targetStream):
     print 'training...'
     plot_cont(train_batch, epochs)
 
-    print 'saving net...'
-    err = trainer.train() # train an extra time just to get the final error
-    savenet(trainer.module, netwidth, err)
+    # print 'saving net...'
+    # err = trainer.train() # train an extra time just to get the final error
+    # savenet(trainer.module, netwidth, err)
     return net
 
 
