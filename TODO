@@ -17,8 +17,8 @@
       - PCA normalize
 
 # dataset
-   - randomize, create more combinations
-
+   - randomize begin index too
+   - usar nome no seed p/ os random nao coincidir entre as partes qd mixar
 
 
 

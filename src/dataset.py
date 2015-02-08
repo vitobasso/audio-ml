@@ -2,6 +2,7 @@ __author__ = 'victor'
 
 import wave
 import contextlib
+from random import Random
 
 from fourrier import *
 from normalize import *
@@ -25,11 +26,13 @@ def wavLength(file):
 
 cache = LRUCache(3)
 def readPart(file, begin, end):
+    assert begin <= end
     x = cache.get(file)
     if x is None:
         print 'loading: ' + file
         fs, x = uf.wavread(file)
         cache.set(file, x)
+    assert end <= len(x)
     return x[begin:end]
 
 
@@ -47,7 +50,6 @@ def totalLength(map):
     for file, length in map:
         total += length
     return total
-
 
 def flatten(v1, v2, flatwidth):
     res1 = np.reshape(v1, flatwidth)
@@ -90,46 +92,86 @@ def wavstat(foldername):
 
 class Stream:
     '''
-    Reads a bunch of audio files as if they were a unique stream
+    Reads a bunch of audio files as if they were a unique and endless stream.
+    Iterates circularly, rearranging the files in a different order every round.
     '''
 
     def __init__(self, folderName, chunkSize):
         self.path = samplesroot + folderName + '/'
-        self.map = mapFiles(self.path)
-        self.length = totalLength(self.map) / chunkSize
+        self.originalMap = mapFiles(self.path)
+        self.sampleLength = totalLength(self.originalMap)
+        assert self.sampleLength > chunkSize, '%d > %d' % (self.sampleLength, chunkSize)
         self.chunkSize = chunkSize
+        self.random = Random()
 
-    def seek(self, i):
+    def _reorderedmap(self, turn):
+        reorderedMap = self.originalMap[:]
+        self.random.seed(turn)
+        self.random.shuffle(reorderedMap)
+        return reorderedMap
+
+    def _spin(self, i):
+        turn = i / self.sampleLength
+        bounded_i = i % self.sampleLength
+        return turn, bounded_i
+
+    def _seek(self, i):
+        turn, bounded_i = self._spin(i)
+        map = self._reorderedmap(turn)
+
         current = 0
-        for count, (fileName, fileSize) in enumerate(self.map):
+        for count, (fileName, fileSize) in enumerate(map):
             next = current + fileSize
-            if i < next:
-                indexInFile = i - current
-                return count, indexInFile
+            if bounded_i < next:
+                indexInFile = bounded_i - current
+                return turn, count, indexInFile
             current = next
         raise IndexError
+
+    def _straightscan(self, turn, beginFile, beginIndex, endFile, endIndex):
+        # print 'straightscan: %d (%d, %d) to (%d, %d)' % (turn, beginFile, beginIndex, endFile, endIndex)
+        assert beginFile <= endFile
+        map = self._reorderedmap(turn)
+        result = np.array([])
+        for ifile in range(beginFile, endFile+1):
+            fname, fsize = map[ifile]
+            fpath = self.path + fname
+            if(ifile == beginFile == endFile): # only one file
+                part = readPart(fpath, beginIndex, endIndex)
+            elif(ifile == beginFile): # first file
+                part = readPart(fpath, beginIndex, fsize)
+            elif(ifile == endFile): # last file
+                part = readPart(fpath, 0, endIndex)
+            else: # files in the middle
+                part = readPart(fpath, 0, fsize)
+            result = np.append(result, part)
+
+        return result
+
+    def _cyclescan(self, begin, end):
+        # guaranteed to cycle at most once, since chunkSize <= totalLength
+        assert begin < end
+        beginTurn, beginFile, beginIndex = self._seek(begin)
+        endTurn, endFile, endIndex = self._seek(end)
+        # print 'cyclescan: %d (%d, %d, %d) to %d (%d, %d, %d)' % (begin, beginTurn, beginFile, beginIndex, end, endTurn, endFile, endIndex)
+        assert beginTurn <= endTurn
+
+        if beginTurn == endTurn:
+            # straight
+            return self._straightscan(beginTurn, beginFile, beginIndex, endFile, endIndex)
+        else:
+            # cyclic
+            map = self._reorderedmap(beginTurn)
+            lastFile = len(map) - 1
+            lastFileName, lastFileLen = map[lastFile]
+            result1stTurn = self._straightscan(beginTurn, beginFile, beginIndex, lastFile, lastFileLen)
+            result2ndTurn = self._straightscan(endTurn, 0, 0, endFile, endIndex)
+            return np.append(result1stTurn, result2ndTurn)
 
     def __getitem__(self, i):
         begin = i * self.chunkSize
         end = begin + self.chunkSize
-        first, beginIndex = self.seek(begin)
-        last, endIndex = self.seek(end)
-
-        chunk = np.array([])
-        for ifile in range(first, last+1):
-            fname, fsize = self.map[ifile]
-            fpath = self.path + fname
-            if(ifile == first == last):
-                part = readPart(fpath, beginIndex, endIndex)
-            elif(ifile == first):
-                part = readPart(fpath, beginIndex, fsize)
-            elif(ifile == last):
-                part = readPart(fpath, 0, endIndex)
-            else:
-                part = readPart(fpath, 0, fsize)
-            chunk = np.append(chunk, part)
-
-        return chunk
+        return self._cyclescan(begin, end)
 
 
 class MixedStream:
@@ -137,7 +179,6 @@ class MixedStream:
     def __init__(self, folderName1, folderName2, chunkSize):
         self.stream1 = Stream(folderName1, chunkSize)
         self.stream2 = Stream(folderName2, chunkSize)
-        self.length = min(self.stream1.length, self.stream2.length)
         self.chunkSize = chunkSize
 
     def __getitem__(self, i):
@@ -151,7 +192,6 @@ class SpectrumStream:
     def __init__(self, rawStream, fourrier=Fourrier(512), normalized=True):
         self.fourrier = fourrier
         self.rawStream = rawStream
-        self.length = self.rawStream.length
         self.normalized = normalized
         self.chunkSize = self.rawStream.chunkSize / self.fourrier.H
         self.shape = (self.chunkSize, self.fourrier.freqRange)
@@ -185,7 +225,6 @@ class FlatStream:
 
     def __init__(self, spectStream):
         self.spectStream = spectStream
-        self.length = self.spectStream.length
         self.chunkSize = self.spectStream.chunkSize
         (dim1, dim2) = self.spectStream.shape
         self.flatWidth = dim1 * dim2
@@ -198,9 +237,9 @@ class FlatStream:
         return unflatten(v, self.spectStream.shape)
 
 
-# mixer = PacketMixer('violin', 'piano', 5*fs)
-# spect = SpectrumPacket(mixer)
-#
+# mixer = MixedStream('violin', 'piano', 5*fs)
+# spect = MixedSpectrumStream(mixer)
+
 # mX, pX = spect.chunk(0)
 # mX = unnormalize_static(mX)
 # spect.fourrier.write(mX, pX)

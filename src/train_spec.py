@@ -9,7 +9,6 @@ from dataset import *
 
 
 
-
 # dataset
 timeWidth = 10 # num of spectrogram columns to input to the net
 fourrier = Fourrier(512)
@@ -19,7 +18,7 @@ flatMix = FlatStream(mixSpec)
 flatTarget = FlatStream(targetSpec)
 
 # training
-batchsize = 100
+batchsize = 50
 epochs = 100
 sampleShape = mixSpec.shape
 netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
