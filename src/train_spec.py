@@ -1,7 +1,6 @@
 __author__ = 'victor'
 
 from pybrain.datasets import SupervisedDataSet
-
 from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer, IdentityConnection
 
@@ -9,30 +8,20 @@ from dataset import *
 
 
 
+
 # dataset
-speclen = 10 # num of spectrogram columns to input to the net
+timeWidth = 10 # num of spectrogram columns to input to the net
 fourrier = Fourrier(512)
-freqrange = fourrier.freqrange
-rawlen = speclen * fourrier.H
+mixSpec = MixedSpectrumStream('acapella', 'piano', timeWidth, fourrier)
+targetSpec = mixSpec.subStream1()
+flatMix = FlatStream(mixSpec)
+flatTarget = FlatStream(targetSpec)
 
 # training
 nparts = 100
 epochs = 100
-flatwidth = speclen * freqrange
-netwidth = 2 * flatwidth # num of units in the input and output layers (magnitudes and phases)
-
-
-def flatten(v1, v2):
-    res1 = np.reshape(v1, flatwidth)
-    res2 = np.reshape(v2, flatwidth)
-    return np.append(res1, res2)
-
-def unflatten(v):
-    flatm = v[:flatwidth]
-    flatp = v[flatwidth:]
-    mX = np.reshape(flatm, (speclen, freqrange))
-    pX = np.reshape(flatp, (speclen, freqrange))
-    return mX, pX
+sampleShape = mixSpec.shape
+netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
 
 
 def build_net(width):
@@ -65,9 +54,7 @@ def train(nparts, mixStream, targetStream):
     net = build_net(netwidth)
     dataset = SupervisedDataSet(netwidth, netwidth)
     for i in np.arange(nparts):
-        sample = flatten(*mixStream.chunk(i))
-        target = flatten(*targetStream.chunk(i))
-        dataset.addSample(sample, target)
+        dataset.addSample(mixStream[i], targetStream[i])
     # trainer = BackpropTrainer(net, dataset=dataset, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
     trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
 
@@ -82,21 +69,16 @@ def train(nparts, mixStream, targetStream):
 
 def test(net, nparts, mixStream):
     print 'testing...'
-    mXresult = np.empty((speclen, freqrange))
-    pXresult = np.empty((speclen, freqrange))
+    mXresult = np.empty(sampleShape)
+    pXresult = np.empty(sampleShape)
     for i in np.arange(nparts):
-        sample = flatten(*mixStream.chunk(i))
-        netout = net.activate(sample)
-        mXpart, pXpart = unflatten(netout)
+        netout = net.activate(mixStream[i])
+        mXpart, pXpart = flatMix.unflatten(netout)
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
     mXrestored = unnormalize_static(mXresult)
     fourrier.write(mXrestored, pXresult, outputfile='output.wav')
 
 
-mixer = PacketMixer('acapella', 'piano', rawlen)
-mixSpec = SpectrumPacket(mixer, fourrier)
-tarSpec = SpectrumPacket(mixer.packet1, fourrier)
-
-net = train(nparts, mixSpec, tarSpec)
-test(net, nparts, mixSpec)
+net = train(nparts, flatMix, flatTarget)
+test(net, nparts, flatMix)

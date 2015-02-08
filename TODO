@@ -5,6 +5,7 @@
 # strategy
    - recurrent network: unsupervised training on sequence
    - mini batch
+      http://pastebin.com/WVBDRwNG
 
 # pre process
    - files

@@ -9,6 +9,7 @@ from dataset import *
 
 
 
+
 # dataset
 trainsoundlen = 2 # duration in sec of the wav sounds loaded for training
 partlen = 5140 # num of samples to input to the net
@@ -48,7 +49,7 @@ def train(nparts, mix, target):
     net = build_net(partlen)
     dataset = SupervisedDataSet(partlen, partlen)
     for i in np.arange(nparts):
-        dataset.addSample(mix.chunk(i), target.chunk(i))
+        dataset.addSample(mix[i], target[i])
     # trainer = BackpropTrainer(net, dataset=dataset, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
     trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
 
@@ -65,11 +66,11 @@ def test(net, nparts, mix):
     print 'testing...'
     result = np.empty(partlen)
     for i in np.arange(nparts):
-        netout = net.activate(mix.chunk(i))
+        netout = net.activate(mix[i])
         result = np.append(result, netout, axis=0)
     wavwrite(result, outputfile='output.wav')
 
 
-mixer = PacketMixer('acapella', 'piano', partlen)
-net = train(nparts, mixer, mixer.packet1)
+mixer = MixedStream('acapella', 'piano', partlen)
+net = train(nparts, mixer, mixer.stream1)
 test(net, nparts, mixer)

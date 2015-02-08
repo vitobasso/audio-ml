@@ -16,7 +16,7 @@ class Fourrier:
         self.M = N-1 # window size
         self.H = (self.M+1)/2 # stft hop size
         self.w = get_window("hamming", self.M)
-        self.freqrange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
+        self.freqRange = N / 2 + 1 # dividing by 2 bc dft is mirrored. idk why the +1 though.
         # X time size ~ len x / hop size
         # X freq size ~ fft size / 2
 

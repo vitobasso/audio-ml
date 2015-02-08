@@ -48,6 +48,22 @@ def totalLength(map):
         total += length
     return total
 
+
+def flatten(v1, v2, flatwidth):
+    res1 = np.reshape(v1, flatwidth)
+    res2 = np.reshape(v2, flatwidth)
+    return np.append(res1, res2)
+
+def unflatten(v, shape):
+    (dim1, dim2) = shape
+    flatwidth = dim1 * dim2
+    flatm = v[:flatwidth]
+    flatp = v[flatwidth:]
+    mX = np.reshape(flatm, shape)
+    pX = np.reshape(flatp, shape)
+    return mX, pX
+
+
 def wavstat(foldername):
     '''
     Compute statistics about the files
@@ -72,7 +88,7 @@ def wavstat(foldername):
 
 
 
-class Packet:
+class Stream:
     '''
     Reads a bunch of audio files as if they were a unique stream
     '''
@@ -93,7 +109,7 @@ class Packet:
             current = next
         raise IndexError
 
-    def chunk(self, i):
+    def __getitem__(self, i):
         begin = i * self.chunkSize
         end = begin + self.chunkSize
         first, beginIndex = self.seek(begin)
@@ -116,36 +132,70 @@ class Packet:
         return chunk
 
 
-class PacketMixer:
+class MixedStream:
 
     def __init__(self, folderName1, folderName2, chunkSize):
-        self.packet1 = Packet(folderName1, chunkSize)
-        self.packet2 = Packet(folderName2, chunkSize)
-        self.length = min(self.packet1.length, self.packet2.length)
+        self.stream1 = Stream(folderName1, chunkSize)
+        self.stream2 = Stream(folderName2, chunkSize)
+        self.length = min(self.stream1.length, self.stream2.length)
         self.chunkSize = chunkSize
 
-    def chunk(self, i):
-        x1 = self.packet1.chunk(i)
-        x2 = self.packet2.chunk(i)
+    def __getitem__(self, i):
+        x1 = self.stream1.__getitem__(i)
+        x2 = self.stream2.__getitem__(i)
         return np.add(0.5*x1, 0.5*x2)
 
 
+class SpectrumStream:
 
-class SpectrumPacket:
-
-    def __init__(self, rawPacket, fourrier=Fourrier(512), normalized=True):
+    def __init__(self, rawStream, fourrier=Fourrier(512), normalized=True):
         self.fourrier = fourrier
-        self.raw = rawPacket
-        self.length = rawPacket.length
-        self.chunkSize = rawPacket.chunkSize / self.fourrier.H
+        self.rawStream = rawStream
+        self.length = self.rawStream.length
         self.normalized = normalized
+        self.chunkSize = self.rawStream.chunkSize / self.fourrier.H
+        self.shape = (self.chunkSize, self.fourrier.freqRange)
 
-    def chunk(self, i):
-        x = self.raw.chunk(i)
+    def __getitem__(self, i):
+        x = self.rawStream.__getitem__(i)
         mX, pX = self.fourrier.analysis(x)
-        if(self.normalized):
+        if self.normalized:
             mX = normalize_static(mX)
         return mX, pX
+
+
+class MixedSpectrumStream(SpectrumStream):
+
+    def __init__(self, folderName1, folderName2, chunkSize, fourrier=Fourrier(512), normalized=True):
+        rawChunkSize = chunkSize * fourrier.H
+        raw = MixedStream(folderName1, folderName2, rawChunkSize)
+        SpectrumStream.__init__(self, raw, fourrier, normalized)
+
+    def subStream1(self):
+        return SpectrumStream(self.rawStream.stream1, self.fourrier, self.normalized)
+
+    def subStream2(self):
+        return SpectrumStream(self.rawStream.stream2, self.fourrier, self.normalized)
+
+
+class FlatStream:
+    '''
+    Flattens the arrays from SpectrumStream to be input to the net
+    '''
+
+    def __init__(self, spectStream):
+        self.spectStream = spectStream
+        self.length = self.spectStream.length
+        self.chunkSize = self.spectStream.chunkSize
+        (dim1, dim2) = self.spectStream.shape
+        self.flatWidth = dim1 * dim2
+
+    def __getitem__(self, i):
+        mX, pX = self.spectStream.__getitem__(i)
+        return flatten(mX, pX, self.flatWidth)
+
+    def unflatten(self, v):
+        return unflatten(v, self.spectStream.shape)
 
 
 # mixer = PacketMixer('violin', 'piano', 5*fs)
