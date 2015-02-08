@@ -2,14 +2,15 @@ __author__ = 'victor'
 
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, TanhLayer, IdentityConnection
+from pybrain import FeedForwardNetwork, FullConnection, TanhLayer
 
 from dataset import *
 
 
 
+
 # dataset
-timeWidth = 20 # num of spectrogram time steps to input to the net
+timeWidth = 10 # num of spectrogram time steps to input to the net
 fourrier = Fourrier()
 mixSpec = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
 targetSpec = mixSpec.subStream1()
@@ -17,7 +18,7 @@ flatMix = FlatStream(mixSpec)
 flatTarget = FlatStream(targetSpec)
 
 # training
-batchsize = 10
+batchsize = 100
 epochs = 1000
 sampleShape = mixSpec.shape
 netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
@@ -27,21 +28,21 @@ def build_net(width):
     net = FeedForwardNetwork()
 
     # layers
-    net.addInputModule(LinearLayer(width, name='in'))
-    net.addOutputModule(LinearLayer(width, name='out'))
+    net.addInputModule(TanhLayer(width, name='in'))
+    net.addOutputModule(TanhLayer(width, name='out'))
     net.addModule(TanhLayer(50, name='h1'))
-    net.addModule(TanhLayer(20, name='h2'))
-    # net.addModule(SigmoidLayer(10, name='h3'))
+    net.addModule(TanhLayer(50, name='h2'))
+    net.addModule(TanhLayer(50, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
     net.addConnection(FullConnection(net['h1'], net['h2']))
     # net.addConnection(FullConnection(net['h1'], net['h3']))
-    net.addConnection(FullConnection(net['h1'], net['out']))
-    # net.addConnection(FullConnection(net['h2'], net['h3']))
-    net.addConnection(FullConnection(net['h2'], net['out']))
-    # net.addConnection(FullConnection(net['h3'], net['out']))
-    net.addConnection(IdentityConnection(net['in'], net['out']))
+    # net.addConnection(FullConnection(net['h1'], net['out']))
+    net.addConnection(FullConnection(net['h2'], net['h3']))
+    # net.addConnection(FullConnection(net['h2'], net['out']))
+    net.addConnection(FullConnection(net['h3'], net['out']))
+    # net.addConnection(IdentityConnection(net['in'], net['out']))
 
     net.sortModules()
     return net
@@ -50,8 +51,7 @@ def build_net(width):
 def train(mixStream, targetStream):
     print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d' % (netwidth, batchsize, epochs)
     net = build_net(netwidth)
-    # trainer = BackpropTrainer(net, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
-    trainer = RPropMinusTrainer(net, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
+    trainer = RPropMinusTrainer(net, batchlearning=True, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0.01)
 
     def train_batch(i):
         batch = SupervisedDataSet(netwidth, netwidth)

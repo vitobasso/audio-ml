@@ -2,9 +2,10 @@ __author__ = 'victor'
 
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain import FeedForwardNetwork, LinearLayer, FullConnection, IdentityConnection, TanhLayer
+from pybrain import FeedForwardNetwork, FullConnection, IdentityConnection, TanhLayer
 
 from dataset import *
+
 
 
 
@@ -21,8 +22,8 @@ def build_net(width):
     net = FeedForwardNetwork()
 
     # layers
-    net.addInputModule(LinearLayer(width, name='in'))
-    net.addOutputModule(LinearLayer(width, name='out'))
+    net.addInputModule(TanhLayer(width, name='in'))
+    net.addOutputModule(TanhLayer(width, name='out'))
     net.addModule(TanhLayer(100, name='h1'))
     net.addModule(TanhLayer(50, name='h2'))
     net.addModule(TanhLayer(100, name='h3'))
@@ -45,8 +46,7 @@ def train(mix, target):
 
     print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d' % (timeWidth, batchsize, epochs)
     net = build_net(timeWidth)
-    # trainer = BackpropTrainer(net, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
-    trainer = RPropMinusTrainer(net, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
+    trainer = RPropMinusTrainer(net, batchlearning=True, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0.01)
 
     def train_batch(i):
         batch = SupervisedDataSet(timeWidth, timeWidth)
