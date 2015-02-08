@@ -9,6 +9,7 @@ from dataset import *
 
 
 
+
 # dataset
 timeWidth = 10 # num of spectrogram columns to input to the net
 fourrier = Fourrier(512)
@@ -18,7 +19,7 @@ flatMix = FlatStream(mixSpec)
 flatTarget = FlatStream(targetSpec)
 
 # training
-nparts = 100
+batchsize = 100
 epochs = 100
 sampleShape = mixSpec.shape
 netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
@@ -48,18 +49,22 @@ def build_net(width):
     return net
 
 
-def train(nparts, mixStream, targetStream):
-
-    print 'preparing to train, nSamples=%d, netwidth=%d' % (nparts, netwidth)
+def train(mixStream, targetStream):
+    print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d' % (netwidth, batchsize, epochs)
     net = build_net(netwidth)
-    dataset = SupervisedDataSet(netwidth, netwidth)
-    for i in np.arange(nparts):
-        dataset.addSample(mixStream[i], targetStream[i])
-    # trainer = BackpropTrainer(net, dataset=dataset, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
-    trainer = RPropMinusTrainer(net, dataset=dataset, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
+    # trainer = BackpropTrainer(net, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
+    trainer = RPropMinusTrainer(net, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
+
+    def train_batch():
+        dataset = SupervisedDataSet(netwidth, netwidth)
+        for i in np.arange(batchsize):
+            dataset.addSample(mixStream[i], targetStream[i])
+        trainer.setData(dataset)
+        err = trainer.train()
+        return err
 
     print 'training...'
-    plot_cont(trainer.train, epochs)
+    plot_cont(train_batch, epochs)
 
     print 'saving net...'
     err = trainer.train() # train an extra time just to get the final error
@@ -67,11 +72,11 @@ def train(nparts, mixStream, targetStream):
     return net
 
 
-def test(net, nparts, mixStream):
+def test(net, mixStream):
     print 'testing...'
     mXresult = np.empty(sampleShape)
     pXresult = np.empty(sampleShape)
-    for i in np.arange(nparts):
+    for i in np.arange(500):
         netout = net.activate(mixStream[i])
         mXpart, pXpart = flatMix.unflatten(netout)
         mXresult = np.append(mXresult, mXpart, axis=0)
@@ -80,5 +85,5 @@ def test(net, nparts, mixStream):
     fourrier.write(mXrestored, pXresult, outputfile='output.wav')
 
 
-net = train(nparts, flatMix, flatTarget)
-test(net, nparts, flatMix)
+net = train(flatMix, flatTarget)
+test(net, flatMix)
