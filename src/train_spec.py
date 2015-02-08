@@ -9,17 +9,18 @@ from dataset import *
 
 
 
+
 # dataset
-timeWidth = 10 # num of spectrogram columns to input to the net
-fourrier = Fourrier(512)
+timeWidth = 10 # num of spectrogram time steps to input to the net
+fourrier = Fourrier()
 mixSpec = MixedSpectrumStream('acapella', 'piano', timeWidth, fourrier)
 targetSpec = mixSpec.subStream1()
 flatMix = FlatStream(mixSpec)
 flatTarget = FlatStream(targetSpec)
 
 # training
-batchsize = 50
-epochs = 100
+batchsize = 20
+epochs = 1000
 sampleShape = mixSpec.shape
 netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
 
@@ -54,11 +55,13 @@ def train(mixStream, targetStream):
     # trainer = BackpropTrainer(net, learningrate=0.01, lrdecay=1, momentum=0.03, weightdecay=0)
     trainer = RPropMinusTrainer(net, learningrate=0.1, lrdecay=1, momentum=0.03, weightdecay=0)
 
-    def train_batch():
-        dataset = SupervisedDataSet(netwidth, netwidth)
-        for i in np.arange(batchsize):
-            dataset.addSample(mixStream[i], targetStream[i])
-        trainer.setData(dataset)
+    def train_batch(i):
+        batch = SupervisedDataSet(netwidth, netwidth)
+        begin = i * batchsize
+        end = begin + batchsize
+        for j in np.arange(begin, end):
+            batch.addSample(mixStream[j], targetStream[j])
+        trainer.setData(batch)
         err = trainer.train()
         return err
 

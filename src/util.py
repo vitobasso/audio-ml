@@ -95,7 +95,7 @@ def plot_cont(fun, xmax):
 
     def update(i):
         t1 = time.time()
-        yi = fun()
+        yi = fun(i)
         dt = time.time() - t1
 
         y.append(yi)
