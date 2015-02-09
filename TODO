@@ -3,7 +3,18 @@
 - play results while training
 
 # strategy
-   - recurrent network: unsupervised training on sequence
+   - recurrent net: unsupervised training on sequence
+   - convolutional net
+      http://deeplearning.net/tutorial/lenet.html
+      https://github.com/pybrain/pybrain/blob/master/pybrain/structure/networks/convolutional.py
+   - evolino: avoid local minima
+      https://github.com/pybrain/pybrain/blob/master/pybrain/supervised/trainers/evolino.py
+      ftp://ftp.idsia.ch/pub/juergen/nc2007.pdf
+   - more
+      http://www.stuartreid.co.za/misconceptions-about-neural-networks/
+         - Particle Swarm Optimization
+         - Genetic Algorithm
+      http://deeplearning.net/tutorial/
 
 # pre process
    - files
