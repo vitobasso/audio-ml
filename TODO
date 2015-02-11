@@ -22,6 +22,8 @@
       - normalize volume
    - input stream
       - PCA normalize
+      - zero-padding, shorter hop, l2 normalize, sqrt compress, PCA whitening
+         http://www-etud.iro.umontreal.ca/~boulanni/ISMIR2013.pdf
 
 # dataset
    - fix popping caused by stft borders

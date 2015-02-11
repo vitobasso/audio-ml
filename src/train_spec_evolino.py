@@ -1,11 +1,11 @@
+from pybrain.structure.modules.evolinonetwork import EvolinoNetwork
+from pybrain.supervised.trainers.evolino import EvolinoTrainer
+
 __author__ = 'victor'
 
 from pybrain.datasets import SupervisedDataSet
-from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain import FullConnection, TanhLayer, RecurrentNetwork, LSTMLayer
 
 from dataset import *
-
 
 
 
@@ -26,29 +26,7 @@ netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (
 
 
 def build_net(width):
-    # net = FeedForwardNetwork()
-    net = RecurrentNetwork()
-
-    # layers
-    net.addInputModule(TanhLayer(width, name='in'))
-    net.addOutputModule(TanhLayer(width, name='out'))
-    net.addModule(LSTMLayer(20, name='h1'))
-    net.addModule(TanhLayer(50, name='h2'))
-    # net.addModule(LSTMLayer(20, name='h3'))
-
-    # connections
-    net.addConnection(FullConnection(net['in'], net['h1']))
-    net.addConnection(FullConnection(net['h1'], net['h2']))
-    # net.addConnection(FullConnection(net['h1'], net['h3']))
-    net.addConnection(FullConnection(net['h1'], net['out']))
-    # net.addConnection(FullConnection(net['h2'], net['h3']))
-    net.addConnection(FullConnection(net['h2'], net['out']))
-    # net.addConnection(FullConnection(net['h3'], net['out']))
-    # net.addConnection(IdentityConnection(net['in'], net['out']))
-
-    # net.addRecurrentConnection(FullConnection(net['h1'], net['h1']))
-    # net.addRecurrentConnection(FullConnection(net['h2'], net['h2']))
-
+    net = EvolinoNetwork(width, 40)
     net.sortModules()
     return net
 
@@ -56,7 +34,7 @@ def build_net(width):
 def train(mixStream, targetStream):
     print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d' % (netwidth, batchsize, epochs)
     net = build_net(netwidth)
-    trainer = RPropMinusTrainer(net, batchlearning=True, learningrate=0.01, lrdecay=1, momentum=0.1, weightdecay=0)
+    trainer = EvolinoTrainer(net, verbosity=2)
 
     def train_batch(i):
         batch = SupervisedDataSet(netwidth, netwidth)
@@ -82,7 +60,7 @@ def test(net, mixStream):
     mXresult = np.empty(sampleShape)
     pXresult = np.empty(sampleShape)
     for i in np.arange(500):
-        netout = net.activate(mixStream[i])
+        netout = net.activate(mixStream[i]) # TODO ??
         mXpart, pXpart = flatMix.unflatten(netout)
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
