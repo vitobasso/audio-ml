@@ -1,6 +1,8 @@
+from sklearn.decomposition import PCA
+import numpy as np
+
 __author__ = 'victor'
 
-import numpy as np
 
 # Approximate spectrogram magnitude statistics for all sounds in dataset
 globalAvg = -80
@@ -33,6 +35,7 @@ def unnormalize_static(mXnorm):
     return unnormalize(mXnorm, globalAvg, globalScale)
 
 
+# not used
 class OnlineNorm:
     '''
     Computes mean and std online
@@ -70,6 +73,7 @@ class OnlineNorm:
         return self.norm(x)
 
 
+# not used
 class BatchNorm(OnlineNorm):
     '''
     Computes mean and std in batches, passing the batch elements to OnlineNorm one by one
@@ -86,3 +90,12 @@ class BatchNorm(OnlineNorm):
     def batchPush(self, x):
         self.batchUpdate(x)
         return self.norm(x)
+
+
+def pca_model(flatStream, n, n_components=.999):
+    x = flatStream.buffer(n)
+    print 'running pca...'
+    pca = PCA(n_components=n_components)
+    pca.fit(x)
+    print 'components reduced from %d to %d' % (2*flatStream.flatWidth, len(pca.components_))
+    return pca

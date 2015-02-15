@@ -1,3 +1,5 @@
+from settings import SMSTOOLS_MODELS, OUTPUT_HOME
+
 __author__ = 'victor'
 import pygame
 import os
@@ -10,13 +12,10 @@ import matplotlib.animation as anim
 import numpy as np
 from pybrain.tools.xml import NetworkWriter, NetworkReader
 
-
-smstools_home = "../../_dependencies/sms-tools"
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
+sys.path.append(SMSTOOLS_MODELS)
 import stft
 import utilFunctions as uf
 
-output_dir = '../out/'
 fs = 44100
 
 
@@ -111,7 +110,7 @@ def plot_cont(fun, xmax):
 
 
 def wavwrite(x, outputfile='output.wav'):
-    file = output_dir + outputfile
+    file = OUTPUT_HOME + outputfile
     uf.wavwrite(x, fs, file)
 
 
@@ -124,13 +123,13 @@ M: window size
 H: hop size
 '''
 def specwrite(mX, pX, M, H, outputfile='output.wav'):
-    file = output_dir + outputfile
+    file = OUTPUT_HOME + outputfile
     x = stft.stftSynth(mX, pX, M, H)
     uf.wavwrite(x, fs, file)
 
 
 def play(soundfile='output.wav', sync=False):
-    file = output_dir + soundfile
+    file = OUTPUT_HOME + soundfile
     pygame.init()
     if os.path.isfile(file):
         if(play):
@@ -149,12 +148,12 @@ def wait_sound(ch):
 
 def savenet(net, width, err):
     timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S')
-    file = '%snet_%d_%f_%s' % (output_dir, width, err, timestamp)
+    file = '%snet_%d_%f_%s' % (OUTPUT_HOME, width, err, timestamp)
     NetworkWriter.writeToFile(net, file)
 
 
 def loadnet(filename):
-    file = output_dir + filename
+    file = OUTPUT_HOME + filename
     print 'loading net: ' + filename
     return NetworkReader.readFrom(file)
 

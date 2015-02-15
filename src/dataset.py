@@ -5,18 +5,16 @@ import contextlib
 from random import Random
 
 from fourrier import *
-from normalize import *
+from preprocess import normalize_static
 from cache import LRUCache
+from settings import SMSTOOLS_MODELS, SAMPLES_HOME
 
 
-smstools_home = "../../_dependencies/sms-tools"
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), smstools_home + '/software/models/'))
+sys.path.append(SMSTOOLS_MODELS)
 import utilFunctions as uf
 
 
-samplesroot = '../../_dependencies/sound-samples/'
 expected_fmt = dict(rate=44100, swidth=2, ch=1, compr='not compressed')
-
 
 
 def wavLength(file):
@@ -66,31 +64,6 @@ def unflatten(v, shape):
     return mX, pX
 
 
-def wavstat(foldername):
-    '''
-    Compute statistics about the files
-    '''
-    folderpath = samplesroot + foldername
-    result = np.array([])
-    fourrier = Fourrier()
-    for path, dirs, files in os.walk(folderpath):
-        for f in files:
-            fpath = folderpath + '/' + f
-            fs, x = uf.wavread(fpath)
-            mX, pX = fourrier.analysis(x)
-            result = np.append(result, pX)
-    print np.average(result), np.std(result), np.min(result), np.max(result)
-
-
-#                   mX              pX              x
-#                   mean    std     min     max     mean    std
-# guitar:           -72     23      -276    477     -3e-05  0.02
-# drums:            -70     22      -593    320     8e-6    0.2
-# piano:            -94     19                      3e-6    0.08
-# acapella:         -83     18                      -6e-4   0.1
-# violin:           -87     23                      -8e-05  0.09
-
-
 class Stream:
     '''
     Reads a bunch of audio files as if they were a unique and endless stream.
@@ -100,7 +73,7 @@ class Stream:
     '''
 
     def __init__(self, folderName, chunkSize, padding=0):
-        self.path = samplesroot + folderName + '/'
+        self.path = SAMPLES_HOME + folderName + '/'
         self.originalMap = mapFiles(self.path)
         self.sampleLength = totalLength(self.originalMap)
         assert self.sampleLength > chunkSize, '%d > %d' % (self.sampleLength, chunkSize)
@@ -215,6 +188,19 @@ class SpectrumStream:
         assert mX.shape == pX.shape == (self.chunkSize, self.fourrier.freqRange)
         return mX, pX
 
+    # util
+    def concat(self, n):
+        mX = np.array([])
+        pX = np.array([])
+        for i in range(n):
+            mXi, pXi = self[i]
+            mX = np.append(mX, mXi)
+            pX = np.append(pX, pXi)
+        mX = np.reshape(mX, (n * self.chunkSize, self.fourrier.freqRange))
+        pX = np.reshape(pX, (n * self.chunkSize, self.fourrier.freqRange))
+        return mX, pX
+
+
 
 class MixedSpectrumStream(SpectrumStream):
 
@@ -248,32 +234,21 @@ class FlatStream:
     def unflatten(self, v):
         return unflatten(v, self.spectStream.shape)
 
+    # util
+    def buffer(self, n):
+        print 'buffering %d samples...' % n
+        buff = np.array([])
+        for i in range(n):
+            buff = np.append(buff, self[i])
+        buff = np.reshape(buff, (n, 2 * self.flatWidth))
+        return buff
 
-# mixer = MixedStream('violin', 'piano', 5*fs)
-# spect = MixedSpectrumStream(mixer)
 
-# mX, pX = spect.chunk(0)
-# mX = unnormalize_static(mX)
-# spect.fourrier.write(mX, pX)
-# play(sync=True)
-
-
-
-def joinchunks(stream, n, timeWidth, freqRange):
-    mX = np.array([])
-    pX = np.array([])
-    for i in range(n):
-        mXi, pXi = stream[i]
-        mX = np.append(mX, mXi)
-        pX = np.append(pX, pXi)
-    mX = np.reshape(mX, (n*timeWidth, freqRange))
-    pX = np.reshape(pX, (n*timeWidth, freqRange))
-    return mX, pX
 
 # timeWidth = 1 # num of spectrogram time steps to input to the net each time
 # fourrier = Fourrier()
 # mixSpec = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier, normalized=False)
 # targetSpec = mixSpec.subStream1()
-# mX, pX = joinchunks(mixSpec, 1000, timeWidth, fourrier.freqRange)
+# mX, pX = joinchunks(mixSpec, 1000)
 # fourrier.write(mX, pX)
 # play(sync=True)

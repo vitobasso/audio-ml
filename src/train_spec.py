@@ -1,12 +1,12 @@
-__author__ = 'victor'
-
 from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain import FullConnection, TanhLayer, RecurrentNetwork, LSTMLayer
 
+from src.preprocess import unnormalize_static
 from dataset import *
 
 
+__author__ = 'victor'
 
 
 
@@ -32,18 +32,21 @@ def build_net(width):
     # layers
     net.addInputModule(TanhLayer(width, name='in'))
     net.addOutputModule(TanhLayer(width, name='out'))
-    net.addModule(LSTMLayer(20, name='h1'))
-    net.addModule(TanhLayer(50, name='h2'))
-    # net.addModule(LSTMLayer(20, name='h3'))
+    net.addModule(TanhLayer(50, name='h1'))
+    net.addModule(TanhLayer(20, name='h2'))
+    net.addModule(LSTMLayer(20, name='h2*'))
+    net.addModule(TanhLayer(20, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
     net.addConnection(FullConnection(net['h1'], net['h2']))
+    net.addConnection(FullConnection(net['h1'], net['h2*']))
     # net.addConnection(FullConnection(net['h1'], net['h3']))
-    net.addConnection(FullConnection(net['h1'], net['out']))
-    # net.addConnection(FullConnection(net['h2'], net['h3']))
-    net.addConnection(FullConnection(net['h2'], net['out']))
-    # net.addConnection(FullConnection(net['h3'], net['out']))
+    # net.addConnection(FullConnection(net['h1'], net['out']))
+    net.addConnection(FullConnection(net['h2'], net['h3']))
+    net.addConnection(FullConnection(net['h2*'], net['h3']))
+    # net.addConnection(FullConnection(net['h2'], net['out']))
+    net.addConnection(FullConnection(net['h3'], net['out']))
     # net.addConnection(IdentityConnection(net['in'], net['out']))
 
     # net.addRecurrentConnection(FullConnection(net['h1'], net['h1']))
@@ -54,13 +57,14 @@ def build_net(width):
 
 
 def train(mixStream, targetStream):
-    print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d' % (netwidth, batchsize, epochs)
+    randomOffset = Random().randint(0, 1000) # randomly start on different data
+    print 'preparing to train, netwidth=%d, batchsize=%d, epochs=%d, offset=%d' % (netwidth, batchsize, epochs, randomOffset)
     net = build_net(netwidth)
     trainer = RPropMinusTrainer(net, batchlearning=True, learningrate=0.01, lrdecay=1, momentum=0.1, weightdecay=0)
 
     def train_batch(i):
         batch = SupervisedDataSet(netwidth, netwidth)
-        begin = i * batchsize
+        begin = randomOffset + i * batchsize
         end = begin + batchsize
         for j in np.arange(begin, end):
             batch.addSample(mixStream[j], targetStream[j])

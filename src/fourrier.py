@@ -30,6 +30,6 @@ class Fourrier:
         return stft.stftSynth(mX, pX, self.M, self.H)
 
     def write(self, mX, pX, outputfile='output.wav'):
-        file = output_dir + outputfile
+        file = OUTPUT_HOME + outputfile
         x = stft.stftSynth(mX, pX, self.M, self.H)
         uf.wavwrite(x, fs, file)
