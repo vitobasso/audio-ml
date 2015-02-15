@@ -12,6 +12,7 @@ import stft
 class Fourrier:
 
     def __init__(self, N=512):
+        # TODO zero padding
         self.N = N # fft size (window + zero padding)
         self.M = N-1 # window size
         self.H = (self.M+1)/2 # stft hop size

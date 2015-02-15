@@ -95,15 +95,18 @@ class Stream:
     '''
     Reads a bunch of audio files as if they were a unique and endless stream.
     Iterates circularly, rearranging the files in a different order every round.
+
+    padding: extra samples to load around each chunk. they overlap between samples
     '''
 
-    def __init__(self, folderName, chunkSize):
+    def __init__(self, folderName, chunkSize, padding=0):
         self.path = samplesroot + folderName + '/'
         self.originalMap = mapFiles(self.path)
         self.sampleLength = totalLength(self.originalMap)
         assert self.sampleLength > chunkSize, '%d > %d' % (self.sampleLength, chunkSize)
         self.chunkSize = chunkSize
         self.random = Random()
+        self.padding = padding
 
     def _reorderedmap(self, turn):
         reorderedMap = self.originalMap[:]
@@ -172,15 +175,18 @@ class Stream:
     def __getitem__(self, i):
         begin = i * self.chunkSize
         end = begin + self.chunkSize
+        begin -= self.padding
+        end += self.padding
         return self._cyclescan(begin, end)
 
 
 class MixedStream:
 
-    def __init__(self, folderName1, folderName2, chunkSize):
-        self.stream1 = Stream(folderName1, chunkSize)
-        self.stream2 = Stream(folderName2, chunkSize)
+    def __init__(self, folderName1, folderName2, chunkSize, padding=0):
+        self.stream1 = Stream(folderName1, chunkSize, padding=padding)
+        self.stream2 = Stream(folderName2, chunkSize, padding=padding)
         self.chunkSize = chunkSize
+        self.padding = padding
 
     def __getitem__(self, i):
         x1 = self.stream1.__getitem__(i)
@@ -196,12 +202,17 @@ class SpectrumStream:
         self.normalized = normalized
         self.chunkSize = self.rawStream.chunkSize / self.fourrier.H
         self.shape = (self.chunkSize, self.fourrier.freqRange)
+        assert rawStream.padding == fourrier.H
 
     def __getitem__(self, i):
         x = self.rawStream.__getitem__(i)
+        assert len(x) == (self.chunkSize + 2) * self.fourrier.H # 2 extra for padding
         mX, pX = self.fourrier.analysis(x)
+        mX = mX[1:-1] # remove padding
+        pX = pX[1:-1] # remove padding
         if self.normalized:
             mX = normalize_static(mX)
+        assert mX.shape == pX.shape == (self.chunkSize, self.fourrier.freqRange)
         return mX, pX
 
 
@@ -209,7 +220,7 @@ class MixedSpectrumStream(SpectrumStream):
 
     def __init__(self, folderName1, folderName2, chunkSize, fourrier=Fourrier(512), normalized=True):
         rawChunkSize = chunkSize * fourrier.H
-        raw = MixedStream(folderName1, folderName2, rawChunkSize)
+        raw = MixedStream(folderName1, folderName2, rawChunkSize, padding=fourrier.H) # padding avoids artifacts in the transition between chunks
         SpectrumStream.__init__(self, raw, fourrier, normalized)
 
     def subStream1(self):
@@ -246,3 +257,23 @@ class FlatStream:
 # spect.fourrier.write(mX, pX)
 # play(sync=True)
 
+
+
+def joinchunks(stream, n, timeWidth, freqRange):
+    mX = np.array([])
+    pX = np.array([])
+    for i in range(n):
+        mXi, pXi = stream[i]
+        mX = np.append(mX, mXi)
+        pX = np.append(pX, pXi)
+    mX = np.reshape(mX, (n*timeWidth, freqRange))
+    pX = np.reshape(pX, (n*timeWidth, freqRange))
+    return mX, pX
+
+# timeWidth = 1 # num of spectrogram time steps to input to the net each time
+# fourrier = Fourrier()
+# mixSpec = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier, normalized=False)
+# targetSpec = mixSpec.subStream1()
+# mX, pX = joinchunks(mixSpec, 1000, timeWidth, fourrier.freqRange)
+# fourrier.write(mX, pX)
+# play(sync=True)
