@@ -4,7 +4,8 @@ from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain import FeedForwardNetwork, FullConnection, IdentityConnection, TanhLayer
 
-from dataset import *
+from datasource import *
+
 
 
 

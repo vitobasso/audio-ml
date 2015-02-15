@@ -5,7 +5,7 @@ import contextlib
 from random import Random
 
 from fourrier import *
-from preprocess import normalize_static
+from preprocess import normalize_static, pca_transform, pca_inverse, unnormalize_static, global_pca
 from cache import LRUCache
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
 
@@ -169,10 +169,9 @@ class MixedStream:
 
 class SpectrumStream:
 
-    def __init__(self, rawStream, fourrier=Fourrier(512), normalized=True):
+    def __init__(self, rawStream, fourrier=Fourrier(512)):
         self.fourrier = fourrier
         self.rawStream = rawStream
-        self.normalized = normalized
         self.chunkSize = self.rawStream.chunkSize / self.fourrier.H
         self.shape = (self.chunkSize, self.fourrier.freqRange)
         assert rawStream.padding == fourrier.H
@@ -183,72 +182,87 @@ class SpectrumStream:
         mX, pX = self.fourrier.analysis(x)
         mX = mX[1:-1] # remove padding
         pX = pX[1:-1] # remove padding
-        if self.normalized:
-            mX = normalize_static(mX)
         assert mX.shape == pX.shape == (self.chunkSize, self.fourrier.freqRange)
         return mX, pX
 
     # util
     def concat(self, n):
-        mX = np.array([])
-        pX = np.array([])
+        shape = (0, self.fourrier.freqRange)
+        mX = np.empty(shape)
+        pX = np.empty(shape)
         for i in range(n):
             mXi, pXi = self[i]
-            mX = np.append(mX, mXi)
-            pX = np.append(pX, pXi)
-        mX = np.reshape(mX, (n * self.chunkSize, self.fourrier.freqRange))
-        pX = np.reshape(pX, (n * self.chunkSize, self.fourrier.freqRange))
+            mX = np.append(mX, mXi, axis=0)
+            pX = np.append(pX, pXi, axis=0)
         return mX, pX
 
 
 
 class MixedSpectrumStream(SpectrumStream):
 
-    def __init__(self, folderName1, folderName2, chunkSize, fourrier=Fourrier(512), normalized=True):
+    def __init__(self, folderName1, folderName2, chunkSize, fourrier=Fourrier(512)):
         rawChunkSize = chunkSize * fourrier.H
         raw = MixedStream(folderName1, folderName2, rawChunkSize, padding=fourrier.H) # padding avoids artifacts in the transition between chunks
-        SpectrumStream.__init__(self, raw, fourrier, normalized)
+        SpectrumStream.__init__(self, raw, fourrier)
 
     def subStream1(self):
-        return SpectrumStream(self.rawStream.stream1, self.fourrier, self.normalized)
+        return SpectrumStream(self.rawStream.stream1, self.fourrier)
 
     def subStream2(self):
-        return SpectrumStream(self.rawStream.stream2, self.fourrier, self.normalized)
+        return SpectrumStream(self.rawStream.stream2, self.fourrier)
 
 
 class FlatStream:
     '''
     Flattens the arrays from SpectrumStream to be input to the net
+    Pre-processes the audio:
+        - normalize mean and std
+        - reduce dimensionality (pca)
     '''
 
-    def __init__(self, spectStream):
+    def __init__(self, spectStream, preprocess=True):
         self.spectStream = spectStream
         self.chunkSize = self.spectStream.chunkSize
         (dim1, dim2) = self.spectStream.shape
         self.flatWidth = dim1 * dim2
+        self.preprocess = preprocess
+        if(preprocess):
+            self.pca = global_pca
+            self.finalWidth = len(global_pca.components_)
 
     def __getitem__(self, i):
         mX, pX = self.spectStream.__getitem__(i)
-        return flatten(mX, pX, self.flatWidth)
+        if(self.preprocess):
+            mX = normalize_static(mX)
+        flatx = flatten(mX, pX, self.flatWidth)
+        return pca_transform(flatx)
 
-    def unflatten(self, v):
-        return unflatten(v, self.spectStream.shape)
+    def unflatten(self, v, undo_preprocessing=True):
+        if(undo_preprocessing):
+            v = pca_inverse(v)
+        mX, pX = unflatten(v, self.spectStream.shape)
+        if(undo_preprocessing):
+            mX = unnormalize_static(mX)
+        return mX, pX
+
 
     # util
-    def buffer(self, n):
-        print 'buffering %d samples...' % n
+
+    def unflattenMany(self, V, undo_preprocessing=True):
+        shape = (0, self.spectStream.fourrier.freqRange)
+        mX = np.empty(shape)
+        pX = np.empty(shape)
+        for v in V:
+            mXi, pXi = self.unflatten(v, undo_preprocessing)
+            mX = np.append(mX, mXi, axis=0)
+            pX = np.append(pX, pXi, axis=0)
+        return mX, pX
+
+    def buffer(self, n, offset=0):
+        print 'buffering %d samples, starting from %d...' % (n, offset)
         buff = np.array([])
-        for i in range(n):
+        for i in range(offset, offset + n):
             buff = np.append(buff, self[i])
-        buff = np.reshape(buff, (n, 2 * self.flatWidth))
+        buff = np.reshape(buff, (n, self.finalWidth))
         return buff
 
-
-
-# timeWidth = 1 # num of spectrogram time steps to input to the net each time
-# fourrier = Fourrier()
-# mixSpec = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier, normalized=False)
-# targetSpec = mixSpec.subStream1()
-# mX, pX = joinchunks(mixSpec, 1000)
-# fourrier.write(mX, pX)
-# play(sync=True)

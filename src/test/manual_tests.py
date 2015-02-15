@@ -5,7 +5,7 @@ import numpy as np
 
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
 from src.fourrier import Fourrier
-from src.preprocess import pca_model, unnormalize_static
+from src.preprocess import unnormalize_static
 
 
 sys.path.append(SMSTOOLS_MODELS)
@@ -38,34 +38,37 @@ def wavstat(foldername):
 # violin:           -87     23                      -8e-05  0.09
 
 
-def pca_test(flatStream, n):
-    pca = pca_model(flatStream, n, .999)
-    x = flatStream.buffer(n)
-    xt = pca.transform(x)
-
-    print 'restoring...'
-    xr = pca.inverse_transform(xt)
-
+def flatspecwrite(flatStream, n, flat_x):
+    print 'unfolding and saving...'
     timeWidth, freqRange = flatStream.spectStream.shape
+    shape = (n * timeWidth, freqRange)
     mX = np.array([])
     pX = np.array([])
     for i in range(n):
-        mXi, pXi = flatStream.unflatten(xr[i])
+        mXi, pXi = flatStream.unflatten(flat_x[i])
         mX = np.append(mX, mXi)
         pX = np.append(pX, pXi)
-    mX = np.reshape(mX, (n*timeWidth, freqRange))
-    pX = np.reshape(pX, (n*timeWidth, freqRange))
-    assert mX.shape == pX.shape == (n*timeWidth, freqRange)
-
+    mX = np.reshape(mX, shape)
+    pX = np.reshape(pX, shape)
+    assert mX.shape == pX.shape == shape
     mX = unnormalize_static(mX)
-
     print 'writing...'
     flatStream.spectStream.fourrier.write(mX, pX)
 
 
+def pca_test(pca, x, flatStream):
+    n = len(x)
+    xt = pca.transform(x)
+    xr = pca.inverse_transform(xt)
+    flatspecwrite(flatStream, n, xr)
+
+
 # mixSpec = MixedSpectrumStream('piano', 'acapella', 1)
+# mixSpec = MixedSpectrumStream('drums', 'guitar', 1)
+# spec = mixSpec.subStream1()
 # flatStream = FlatStream(mixSpec)
-# pca_test(flatStream, 1000)
 
-
-
+# flat_x = flatStream.buffer(1000)
+# mX, pX = flatStream.unflattenMany(flat_x)
+# flatStream.spectStream.fourrier.write(mX, pX)
+# play(sync=True)

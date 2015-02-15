@@ -2,8 +2,7 @@ from pybrain.datasets import SupervisedDataSet
 from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain import FullConnection, TanhLayer, RecurrentNetwork, LSTMLayer
 
-from src.preprocess import unnormalize_static
-from dataset import *
+from datasource import *
 
 
 __author__ = 'victor'
@@ -22,7 +21,7 @@ flatTarget = FlatStream(targetSpec)
 batchsize = 100
 epochs = 1000
 sampleShape = mixSpec.shape
-netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
+netwidth = flatMix.finalWidth # num of units in the input and output layers (magnitudes and phases)
 
 
 def build_net(width):
@@ -90,8 +89,7 @@ def test(net, mixStream):
         mXpart, pXpart = flatMix.unflatten(netout)
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
-    mXrestored = unnormalize_static(mXresult)
-    fourrier.write(mXrestored, pXresult, outputfile='output.wav')
+    fourrier.write(mXresult, pXresult, outputfile='output.wav')
 
 
 net = train(flatMix, flatTarget)

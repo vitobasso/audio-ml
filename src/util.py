@@ -1,4 +1,7 @@
+import pickle
+
 from settings import SMSTOOLS_MODELS, OUTPUT_HOME
+
 
 __author__ = 'victor'
 import pygame
@@ -184,3 +187,14 @@ def resize(x, tsec):
     else:
         rep = tsamples/len(x) + 1
         return np.tile(x, rep)[:tsamples]
+
+def objwrite(obj, path):
+    abspath = OUTPUT_HOME + path
+    with open(abspath, 'wb') as handle:
+      pickle.dump(obj, handle)
+
+def objread(path):
+    abspath = OUTPUT_HOME + path
+    with open(abspath, 'rb') as handle:
+      obj = pickle.load(handle)
+    return obj

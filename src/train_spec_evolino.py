@@ -5,7 +5,7 @@ __author__ = 'victor'
 
 from pybrain.datasets import SupervisedDataSet
 
-from dataset import *
+from datasource import *
 
 
 
@@ -22,7 +22,7 @@ flatTarget = FlatStream(targetSpec)
 batchsize = 100
 epochs = 1000
 sampleShape = mixSpec.shape
-netwidth = 2 * flatMix.flatWidth # num of units in the input and output layers (magnitudes and phases)
+netwidth = flatMix.finalWidth # num of units in the input and output layers (magnitudes and phases)
 
 
 def build_net(width):
