@@ -44,10 +44,10 @@ class OnlineNorm:
         self.m2 = 0
 
     def update(self, x):
-        self.n = self.n + 1
+        self.n += 1
         delta = x - self.mean
-        self.mean = self.mean + delta/self.n
-        self.m2 = self.m2 + delta*(x - self.mean)
+        self.mean += delta / self.n
+        self.m2 += delta * (x - self.mean)
 
     def stat(self):
         if self.n < 2:
