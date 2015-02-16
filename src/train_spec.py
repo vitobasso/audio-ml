@@ -25,7 +25,7 @@ pcaTarget = PcaStream(stdTar, pca)
 
 # training
 batchsize = 100
-epochs = 1000
+epochs = 10000
 sampleShape = specMix.shape
 netwidth = pcaMix.width # num of units in the input and output layers (magnitudes and phases)
 

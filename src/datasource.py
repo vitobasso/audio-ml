@@ -5,6 +5,7 @@ import contextlib
 from random import Random
 
 from fourrier import *
+
 from cache import LRUCache
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
 
@@ -89,6 +90,7 @@ class Stream:
     '''
 
     def __init__(self, folderName, chunkSize, padding=0):
+        assert isinstance(chunkSize, int)
         self.path = folderName + '/'
         self.originalMap = mapFiles(self.path)
         self.sampleLength = totalLength(self.originalMap)
@@ -172,6 +174,7 @@ class Stream:
 class MixedStream:
 
     def __init__(self, folderName1, folderName2, chunkSize, padding=0):
+        assert isinstance(chunkSize, int)
         self.stream1 = Stream(folderName1, chunkSize, padding=padding)
         self.stream2 = Stream(folderName2, chunkSize, padding=padding)
         self.chunkSize = chunkSize
@@ -189,13 +192,13 @@ class SpectrumStream:
         assert isinstance(rawStream, Stream) or isinstance(rawStream, MixedStream)
         self.fourrier = fourrier
         self.rawStream = rawStream
-        self.chunkSize = self.rawStream.chunkSize / self.fourrier.H
+        self.chunkSize = self.rawStream.chunkSize / self.fourrier.hop
         self.shape = (self.chunkSize, self.fourrier.freqRange)
-        assert rawStream.padding == fourrier.H
+        assert rawStream.padding == fourrier.hop
 
     def __getitem__(self, i):
         x = self.rawStream.__getitem__(i)
-        assert len(x) == (self.chunkSize + 2) * self.fourrier.H # 2 extra for padding
+        assert len(x) == (self.chunkSize + 2) * self.fourrier.hop # 2 extra for padding
         mX, pX = self.fourrier.analysis(x)
         mX = mX[1:-1] # remove padding
         pX = pX[1:-1] # remove padding
@@ -218,8 +221,9 @@ class SpectrumStream:
 class MixedSpectrumStream(SpectrumStream):
 
     def __init__(self, folderName1, folderName2, chunkSize, fourrier=Fourrier(512)):
-        rawChunkSize = chunkSize * fourrier.H
-        raw = MixedStream(folderName1, folderName2, rawChunkSize, padding=fourrier.H) # padding avoids artifacts in the transition between chunks
+        assert isinstance(chunkSize, int)
+        rawChunkSize = chunkSize * fourrier.hop
+        raw = MixedStream(folderName1, folderName2, rawChunkSize, padding=fourrier.hop) # padding avoids artifacts in the transition between chunks
         SpectrumStream.__init__(self, raw, fourrier)
 
     def subStream1(self):

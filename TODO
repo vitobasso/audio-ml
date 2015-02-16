@@ -10,6 +10,8 @@
    - evolino: avoid local minima
       https://github.com/pybrain/pybrain/blob/master/pybrain/supervised/trainers/evolino.py
       ftp://ftp.idsia.ch/pub/juergen/nc2007.pdf
+      http://people.idsia.ch/~daan/papers/gomez-ijcai05.pdf
+      https://github.com/pybrain/pybrain/blob/master/examples/supervised/evolino/superimposed_sine.py
    - more
       http://www.stuartreid.co.za/misconceptions-about-neural-networks/
          - Particle Swarm Optimization
