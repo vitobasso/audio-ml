@@ -4,8 +4,9 @@ import sys
 import numpy as np
 
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
+from src.datasource import MixedSpectrumStream, FlatStream, NormSpecStream, PcaStream
 from src.fourrier import Fourrier
-from src.preprocess import unnormalize_static
+from src.util import play, objread
 
 
 sys.path.append(SMSTOOLS_MODELS)
@@ -45,7 +46,7 @@ def flatspecwrite(flatStream, n, flat_x):
     mX = np.array([])
     pX = np.array([])
     for i in range(n):
-        mXi, pXi = flatStream.unflatten(flat_x[i])
+        mXi, pXi = flatStream._unflatten(flat_x[i])
         mX = np.append(mX, mXi)
         pX = np.append(pX, pXi)
     mX = np.reshape(mX, shape)
@@ -66,9 +67,41 @@ def pca_test(pca, x, flatStream):
 # mixSpec = MixedSpectrumStream('piano', 'acapella', 1)
 # mixSpec = MixedSpectrumStream('drums', 'guitar', 1)
 # spec = mixSpec.subStream1()
-# flatStream = FlatStream(mixSpec)
+# normStream = NormSpecStream(mixSpec)
+# flatStream = FlatStream(normStream)
+# pca = objread('pca')
+# pcaStream = PcaStream(flatStream, pca)
 
-# flat_x = flatStream.buffer(1000)
+
+
+# flat_x = flatStream.buffer(1000, 0)
 # mX, pX = flatStream.unflattenMany(flat_x)
 # flatStream.spectStream.fourrier.write(mX, pX)
 # play(sync=True)
+
+# pca_fit_write(flatStream, 1000)
+
+
+def streams_test():
+    # create streams
+    timeWidth = 1 # num of spectrogram time steps to input to the net each time
+    fourrier = Fourrier()
+    specMix = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
+    specTar = specMix.subStream1()
+    normMix = NormSpecStream(specMix)
+    normTar = NormSpecStream(specTar)
+    flatMix = FlatStream(normMix)
+    flatTarget = FlatStream(normTar)
+    pca = objread('pca')
+    pcaMix = PcaStream(flatMix, pca)
+    pcaTarget = PcaStream(flatTarget, pca)
+
+    # do and undo
+    x = pcaMix.buffer(10000, 1000)
+    x = pcaMix.undo(x)
+    mX, pX = flatMix.unflattenMany(x)
+    mX = normMix.unnormMany(mX)
+    fourrier.write(mX, pX)
+    play(sync=True)
+
+streams_test()

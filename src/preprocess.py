@@ -1,16 +1,10 @@
 from sklearn.decomposition import PCA
 import numpy as np
 
-from src.util import objwrite, objread
+from src.util import objwrite
 
 
 __author__ = 'victor'
-
-
-# Approximate spectrogram magnitude statistics for all sounds in dataset
-globalAvg = -80
-globalScale = 3 * 21 # 3 * standard deviation
-global_pca = objread('pca') # previously generated pca model fitting the training data
 
 
 def normalize_gauss(mX):
@@ -25,38 +19,22 @@ def normalize_linear(mX):
     mXnorm = (mX - avg) / range
     return mXnorm, avg, range
 
-def normalize_static(mX):
-    '''
-    Approximate spectrogram magnitude mean and std for all sounds in dataset
-    '''
-    return (mX - globalAvg) / globalScale
+def unnormalize(x, avg, std):
+    return x * std + avg
 
-def unnormalize(mXnorm, avg, std):
-    mX = mXnorm * std + avg
-    return mX
-
-def unnormalize_static(mXnorm):
-    return unnormalize(mXnorm, globalAvg, globalScale)
-
-def fit_pca_model(flatStream, n, n_components=.999):
+def pca_fit(flatStream, n, n_components=.999):
     x = flatStream.buffer(n)
     print 'running pca...'
-    pca = PCA(n_components=n_components)
+    pca = PCA(n_components=n_components, whiten=True)
     pca.fit(x)
 
-    orig_size = 2 * flatStream.flatWidth
+    orig_size = flatStream.width
     reduced_size = len(pca.components_)
     print 'components reduced from %d to %d' % (orig_size, reduced_size)
     return pca, orig_size, reduced_size
 
-def write_pca_model(flatStream, n, n_components=.999):
-    pca, orig_size, reduced_size = fit_pca_model(flatStream, n, n_components)
+def pca_fit_write(flatStream, n, n_components=.999):
+    pca, orig_size, reduced_size = pca_fit(flatStream, n, n_components)
     name = 'pca_%d_to_%d' % (orig_size, reduced_size)
     objwrite(pca, name)
     return name
-
-def pca_transform(x):
-    return global_pca.transform(x)
-
-def pca_inverse(xt):
-    return global_pca.inverse_transform(xt)

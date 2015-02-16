@@ -12,16 +12,21 @@ __author__ = 'victor'
 # dataset
 timeWidth = 1 # num of spectrogram time steps to input to the net each time
 fourrier = Fourrier()
-mixSpec = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
-targetSpec = mixSpec.subStream1()
-flatMix = FlatStream(mixSpec)
-flatTarget = FlatStream(targetSpec)
+specMix = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
+specTar = specMix.subStream1()
+normMix = NormSpecStream(specMix)
+normTar = NormSpecStream(specTar)
+flatMix = FlatStream(normMix)
+flatTarget = FlatStream(normTar)
+pca = objread('pca')
+pcaMix = PcaStream(flatMix, pca, 6)
+pcaTarget = PcaStream(flatTarget, pca, 6)
 
 # training
 batchsize = 100
 epochs = 1000
-sampleShape = mixSpec.shape
-netwidth = flatMix.finalWidth # num of units in the input and output layers (magnitudes and phases)
+sampleShape = specMix.shape
+netwidth = pcaMix.width # num of units in the input and output layers (magnitudes and phases)
 
 
 def build_net(width):
@@ -86,11 +91,13 @@ def test(net, mixStream):
     pXresult = np.empty(sampleShape)
     for i in np.arange(500):
         netout = net.activate(mixStream[i])
-        mXpart, pXpart = flatMix.unflatten(netout)
+        part = pcaMix.undo(netout)
+        mXpart, pXpart = flatMix.unflatten(part)
+        mXpart = normMix.unnorm(mXpart)
         mXresult = np.append(mXresult, mXpart, axis=0)
         pXresult = np.append(pXresult, pXpart, axis=0)
-    fourrier.write(mXresult, pXresult, outputfile='output.wav')
+    fourrier.write(mXresult, pXresult)
 
 
-net = train(flatMix, flatTarget)
-test(net, flatMix)
+net = train(pcaMix, pcaTarget)
+test(net, pcaMix)

@@ -5,7 +5,6 @@ import contextlib
 from random import Random
 
 from fourrier import *
-from preprocess import normalize_static, pca_transform, pca_inverse, unnormalize_static, global_pca
 from cache import LRUCache
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
 
@@ -49,19 +48,21 @@ def totalLength(map):
         total += length
     return total
 
-def flatten(v1, v2, flatwidth):
-    res1 = np.reshape(v1, flatwidth)
-    res2 = np.reshape(v2, flatwidth)
-    return np.append(res1, res2)
+def buffer(iterable, fun, shape):
+    buff = np.empty(shape)
+    for i in iterable:
+        v = np.reshape(fun(i), (-1, shape[1]))
+        buff = np.append(buff, v, axis=0)
+    return buff
 
-def unflatten(v, shape):
-    (dim1, dim2) = shape
-    flatwidth = dim1 * dim2
-    flatm = v[:flatwidth]
-    flatp = v[flatwidth:]
-    mX = np.reshape(flatm, shape)
-    pX = np.reshape(flatp, shape)
-    return mX, pX
+def buffer2(iterable, fun, shape):
+    buff1 = np.empty(shape)
+    buff2 = np.empty(shape)
+    for i in iterable:
+        v1, v2 = fun(i)
+        buff1 = np.append(buff1, v1, axis=0)
+        buff2 = np.append(buff2, v2, axis=0)
+    return buff1, buff2
 
 
 class Stream:
@@ -170,6 +171,7 @@ class MixedStream:
 class SpectrumStream:
 
     def __init__(self, rawStream, fourrier=Fourrier(512)):
+        assert isinstance(rawStream, Stream) or isinstance(rawStream, MixedStream)
         self.fourrier = fourrier
         self.rawStream = rawStream
         self.chunkSize = self.rawStream.chunkSize / self.fourrier.H
@@ -182,7 +184,7 @@ class SpectrumStream:
         mX, pX = self.fourrier.analysis(x)
         mX = mX[1:-1] # remove padding
         pX = pX[1:-1] # remove padding
-        assert mX.shape == pX.shape == (self.chunkSize, self.fourrier.freqRange)
+        assert mX.shape == pX.shape == self.shape
         return mX, pX
 
     # util
@@ -212,6 +214,43 @@ class MixedSpectrumStream(SpectrumStream):
         return SpectrumStream(self.rawStream.stream2, self.fourrier)
 
 
+class NormSpecStream:
+    '''
+    Normalizes spectral magnitudes
+    '''
+
+    def __init__(self, specStream, mean=-80, scale=21): # default values were pre-measured from data
+        assert isinstance(specStream, SpectrumStream)
+        self.specStream = specStream
+        self.shape = specStream.shape
+        self.fourrier = specStream.fourrier
+        self.mean = mean
+        self.scale = scale
+
+    def __getitem__(self, i):
+        mX, pX = self.specStream.__getitem__(i)
+        mX = (mX - self.mean) / self.scale
+        return mX, pX
+
+    def unnorm(self, mX):
+        return mX * self.scale + self.mean
+
+
+    # util
+
+    def unnormMany(self, mX):
+        print 'NormSpecStream: un-normalizing %d samples ...' % len(mX)
+        shape = (0, self.fourrier.freqRange)
+        fun = lambda v: self.unnorm(v)
+        return buffer(mX, fun, shape)
+
+    def buffer(self, n, offset=0):
+        print 'NormSpecStream: buffering %d samples, starting from %d ...' % (n, offset)
+        shape = (0, self.fourrier.freqRange)
+        fun = lambda i: self[i]
+        return buffer2(range(offset, offset+n), fun, shape)
+
+
 class FlatStream:
     '''
     Flattens the arrays from SpectrumStream to be input to the net
@@ -220,49 +259,81 @@ class FlatStream:
         - reduce dimensionality (pca)
     '''
 
-    def __init__(self, spectStream, preprocess=True):
-        self.spectStream = spectStream
-        self.chunkSize = self.spectStream.chunkSize
-        (dim1, dim2) = self.spectStream.shape
-        self.flatWidth = dim1 * dim2
-        self.preprocess = preprocess
-        if(preprocess):
-            self.pca = global_pca
-            self.finalWidth = len(global_pca.components_)
+    def __init__(self, specStream):
+        assert isinstance(specStream, SpectrumStream) or isinstance(specStream, NormSpecStream)
+        self.specStream = specStream
+        (dim1, dim2) = self.specStream.shape
+        self.width = 2 * dim1 * dim2
+
+    def _flatten(self, v1, v2):
+        res1 = np.reshape(v1, self.width/2)
+        res2 = np.reshape(v2, self.width/2)
+        return np.append(res1, res2)
+
+    def _unflatten(self, v):
+        (dim1, dim2) = self.specStream.shape
+        halfwidth = dim1 * dim2
+        assert len(v.shape) == 1
+        assert v.shape[0] == 2 * halfwidth
+        flatm = v[:halfwidth]
+        flatp = v[halfwidth:]
+        mX = np.reshape(flatm, self.specStream.shape)
+        pX = np.reshape(flatp, self.specStream.shape)
+        return mX, pX
 
     def __getitem__(self, i):
-        mX, pX = self.spectStream.__getitem__(i)
-        if(self.preprocess):
-            mX = normalize_static(mX)
-        flatx = flatten(mX, pX, self.flatWidth)
-        return pca_transform(flatx)
+        mX, pX = self.specStream.__getitem__(i)
+        return self._flatten(mX, pX)
 
-    def unflatten(self, v, undo_preprocessing=True):
-        if(undo_preprocessing):
-            v = pca_inverse(v)
-        mX, pX = unflatten(v, self.spectStream.shape)
-        if(undo_preprocessing):
-            mX = unnormalize_static(mX)
-        return mX, pX
+    def unflatten(self, v):
+        return self._unflatten(v)
 
 
     # util
 
-    def unflattenMany(self, V, undo_preprocessing=True):
-        shape = (0, self.spectStream.fourrier.freqRange)
-        mX = np.empty(shape)
-        pX = np.empty(shape)
-        for v in V:
-            mXi, pXi = self.unflatten(v, undo_preprocessing)
-            mX = np.append(mX, mXi, axis=0)
-            pX = np.append(pX, pXi, axis=0)
-        return mX, pX
+    def unflattenMany(self, V):
+        print 'FlatStream: unflattening %d samples ...' % len(V)
+        shape = (0, self.specStream.fourrier.freqRange)
+        fun = lambda v: self.unflatten(v)
+        return buffer2(V, fun, shape)
 
     def buffer(self, n, offset=0):
-        print 'buffering %d samples, starting from %d...' % (n, offset)
-        buff = np.array([])
-        for i in range(offset, offset + n):
-            buff = np.append(buff, self[i])
-        buff = np.reshape(buff, (n, self.finalWidth))
-        return buff
+        print 'FlatStream: buffering %d samples, starting from %d ...' % (n, offset)
+        shape = (n, self.width)
+        fun = lambda i: self[i]
+        return buffer(range(offset, offset+n), fun, shape)
 
+
+class PcaStream:
+    '''
+    Runs pca over flattened spectrum data
+    '''
+
+    def __init__(self, flatStream, pca, scale=1): # scale pca result to fit tanh units
+        assert isinstance(flatStream, FlatStream)
+        self.flatStream = flatStream
+        self.pca = pca
+        self.width = pca.n_components_
+        self.scale = scale
+
+    def __getitem__(self, i):
+        x = self.flatStream.__getitem__(i)
+        return self.pca.transform(x) / self.scale
+
+    def undo(self, x):
+        return self.pca.inverse_transform(x) * self.scale
+
+
+    # util
+
+    def undoMany(self, V):
+        print 'PcaStream: undoing %d samples ...' % len(V)
+        shape = (0, self.flatStream.width)
+        fun = lambda v: self.undo(v)
+        return buffer(V, fun, shape)
+
+    def buffer(self, n, offset=0):
+        print 'PcaStream: buffering %d samples, starting from %d ...' % (n, offset)
+        shape = (0, self.width)
+        fun = lambda i: self[i]
+        return buffer(range(offset, offset+n), fun, shape)
