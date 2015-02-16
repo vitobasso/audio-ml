@@ -320,8 +320,20 @@ class PcaStream:
         x = self.flatStream.__getitem__(i)
         return self.pca.transform(x) / self.scale
 
-    def undo(self, x):
-        return self.pca.inverse_transform(x) * self.scale
+    def _restore_whitened(self, x_transformed):
+        '''
+        not implemented in scikit's PCA
+        http://stackoverflow.com/questions/23254700/inversing-pca-transform-with-sklearn-with-whiten-true
+        '''
+        singular_values_sq = 1. / (self.pca.components_ ** 2).sum(axis=1)
+        return np.dot(x_transformed, singular_values_sq[:, np.newaxis] * self.pca.components_) + self.pca.mean_
+
+    def restore(self, x):
+        if self.pca.whiten:
+            x_restored = self._restore_whitened(x)
+        else:
+            x_restored = self.pca.inverse_transform(x)
+        return x_restored * self.scale
 
 
     # util
@@ -329,7 +341,7 @@ class PcaStream:
     def undoMany(self, V):
         print 'PcaStream: undoing %d samples ...' % len(V)
         shape = (0, self.flatStream.width)
-        fun = lambda v: self.undo(v)
+        fun = lambda v: self.restore(v)
         return buffer(V, fun, shape)
 
     def buffer(self, n, offset=0):

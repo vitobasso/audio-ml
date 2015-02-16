@@ -14,6 +14,7 @@
       http://www.stuartreid.co.za/misconceptions-about-neural-networks/
          - Particle Swarm Optimization
          - Genetic Algorithm
+            http://pyevolve.sourceforge.net/
       http://deeplearning.net/tutorial/
    - monte carlo
       https://github.com/pymc-devs/pymc
@@ -21,8 +22,6 @@
       http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.anneal.html
       http://code.google.com/p/aima-python/
       https://github.com/perrygeo/simanneal
-   - genetic
-      http://pyevolve.sourceforge.net/
 
 # pre process
    - files

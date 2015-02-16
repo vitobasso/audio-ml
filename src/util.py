@@ -132,6 +132,7 @@ def specwrite(mX, pX, M, H, outputfile='output.wav'):
 
 
 def play(soundfile='output.wav', sync=False):
+    print 'playing %s' % soundfile
     file = OUTPUT_HOME + soundfile
     pygame.init()
     if os.path.isfile(file):

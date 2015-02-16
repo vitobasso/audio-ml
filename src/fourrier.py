@@ -29,7 +29,13 @@ class Fourrier:
     def synth(self, mX, pX):
         return stft.stftSynth(mX, pX, self.M, self.H)
 
+
+    #util
+
     def write(self, mX, pX, outputfile='output.wav'):
         file = OUTPUT_HOME + outputfile
         x = stft.stftSynth(mX, pX, self.M, self.H)
         uf.wavwrite(x, fs, file)
+
+    def plot(self, mX):
+        plot_stft(mX, self.N, self.H)

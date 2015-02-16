@@ -18,7 +18,7 @@ normMix = NormSpecStream(specMix)
 normTar = NormSpecStream(specTar)
 flatMix = FlatStream(normMix)
 flatTarget = FlatStream(normTar)
-pca = objread('pca')
+pca = objread('pca_514_to_452_w')
 pca_scale = 25
 pcaMix = PcaStream(flatMix, pca, pca_scale)
 pcaTarget = PcaStream(flatTarget, pca, pca_scale)
@@ -97,7 +97,7 @@ def test(net, mixStream):
     pXresult = np.empty(sampleShape)
     for i in np.arange(500):
         netout = net.activate(mixStream[i])
-        part = pcaMix.undo(netout)
+        part = pcaMix.restore(netout)
         mXpart, pXpart = flatMix.unflatten(part)
         mXpart = normMix.unnorm(mXpart)
         mXresult = np.append(mXresult, mXpart, axis=0)
