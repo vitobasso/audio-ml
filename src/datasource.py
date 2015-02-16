@@ -22,22 +22,24 @@ def wavLength(file):
 
 
 cache = LRUCache(3)
-def readPart(file, begin, end):
+def readFilePart(path, begin, end):
     assert begin <= end
-    x = cache.get(file)
+    x = cache.get(path)
     if x is None:
-        print 'loading: ' + file
-        fs, x = uf.wavread(file)
-        cache.set(file, x)
+        print 'loading: ' + path
+        abspath = SAMPLES_HOME + path
+        fs, x = uf.wavread(abspath)
+        cache.set(path, x)
     assert end <= len(x)
     return x[begin:end]
 
 
-def mapFiles(dirpath):
+def mapFiles(path):
+    abspath = SAMPLES_HOME + path
     result = []
-    for path, dirs, files in os.walk(dirpath):
+    for p, dirs, files in os.walk(abspath):
         for f in files:
-            fpath = dirpath + '/' + f
+            fpath = abspath + '/' + f
             length = wavLength(fpath)
             result.append((f, length))
     return result
@@ -87,7 +89,7 @@ class Stream:
     '''
 
     def __init__(self, folderName, chunkSize, padding=0):
-        self.path = SAMPLES_HOME + folderName + '/'
+        self.path = folderName + '/'
         self.originalMap = mapFiles(self.path)
         self.sampleLength = totalLength(self.originalMap)
         assert self.sampleLength > chunkSize, '%d > %d' % (self.sampleLength, chunkSize)
@@ -128,13 +130,13 @@ class Stream:
             fname, fsize = map[ifile]
             fpath = self.path + fname
             if(ifile == beginFile == endFile): # only one file
-                part = readPart(fpath, beginIndex, endIndex)
+                part = readFilePart(fpath, beginIndex, endIndex)
             elif(ifile == beginFile): # first file
-                part = readPart(fpath, beginIndex, fsize)
+                part = readFilePart(fpath, beginIndex, fsize)
             elif(ifile == endFile): # last file
-                part = readPart(fpath, 0, endIndex)
+                part = readFilePart(fpath, 0, endIndex)
             else: # files in the middle
-                part = readPart(fpath, 0, fsize)
+                part = readFilePart(fpath, 0, fsize)
             result = np.append(result, part)
 
         return result
@@ -227,9 +229,11 @@ class MixedSpectrumStream(SpectrumStream):
         return SpectrumStream(self.rawStream.stream2, self.fourrier)
 
 
-class StandardizeStream:
+class MPStandardStream:
     '''
-    Centers spectral magnitudes around the mean and scales magnitudes and phases to fit tanh units (-1, 1)
+    Centers all spectral magnitudes around the common mean.
+    Scales all magnitudes by common std.
+    Scales all phases by 2*pi.
     '''
 
     def __init__(self, specStream, mean=-80, scale=21): # default values were pre-measured from data
@@ -276,23 +280,23 @@ class FlatStream:
     '''
 
     def __init__(self, specStream):
-        assert isinstance(specStream, SpectrumStream) or isinstance(specStream, StandardizeStream)
+        assert isinstance(specStream, SpectrumStream) or isinstance(specStream, MPStandardStream)
         self.specStream = specStream
         (dim1, dim2) = self.specStream.shape
         self.width = 2 * dim1 * dim2
 
-    def _flatten(self, v1, v2):
-        res1 = np.reshape(v1, self.width/2)
-        res2 = np.reshape(v2, self.width/2)
+    def _flatten(self, mX, pX):
+        res1 = np.reshape(mX, self.width/2)
+        res2 = np.reshape(pX, self.width/2)
         return np.append(res1, res2)
 
-    def _unflatten(self, v):
+    def _unflatten(self, x):
         (dim1, dim2) = self.specStream.shape
         halfwidth = dim1 * dim2
-        assert len(v.shape) == 1
-        assert v.shape[0] == 2 * halfwidth
-        flatm = v[:halfwidth]
-        flatp = v[halfwidth:]
+        assert len(x.shape) == 1
+        assert x.shape[0] == 2 * halfwidth
+        flatm = x[:halfwidth]
+        flatp = x[halfwidth:]
         mX = np.reshape(flatm, self.specStream.shape)
         pX = np.reshape(flatp, self.specStream.shape)
         return mX, pX
@@ -301,17 +305,17 @@ class FlatStream:
         mX, pX = self.specStream.__getitem__(i)
         return self._flatten(mX, pX)
 
-    def unflatten(self, v):
-        return self._unflatten(v)
+    def unflatten(self, x):
+        return self._unflatten(x)
 
 
     # util
 
-    def unflattenMany(self, V):
-        print 'FlatStream: unflattening %d samples ...' % len(V)
+    def unflattenMany(self, x):
+        print 'FlatStream: unflattening %d samples ...' % len(x)
         shape = (0, self.specStream.fourrier.freqRange)
         fun = lambda v: self.unflatten(v)
-        return buffer2(V, fun, shape)
+        return buffer2(x, fun, shape)
 
     def buffer(self, n, offset=0):
         print 'FlatStream: buffering %d samples, starting from %d ...' % (n, offset)
@@ -320,21 +324,54 @@ class FlatStream:
         return buffer(range(offset, offset+n), fun, shape)
 
 
+class StandardStream:
+    '''
+    Standardize by feature (magnitude or phase) independently.
+    '''
+
+    def __init__(self, flatStream, scaler): # default values were pre-measured from data
+        assert isinstance(flatStream, FlatStream)
+        self.flatStream = flatStream
+        self.scaler = scaler
+        self.width = flatStream.width
+
+    def __getitem__(self, i):
+        x = self.flatStream.__getitem__(i)
+        return self.scaler.transform(x)
+
+    def unstandard(self, x):
+        return self.scaler.inverse_transform(x)
+
+
+    # util
+
+    def unstandardMany(self, x):
+        print 'StandardizeStream2: un-normalizing %d samples ...' % len(x)
+        shape = (0, self.width)
+        fun = lambda v: self.unstandard(v)
+        return buffer(x, fun, shape)
+
+    def buffer(self, n, offset=0):
+        print 'StandardizeStream2: buffering %d samples, starting from %d ...' % (n, offset)
+        shape = (0, self.width)
+        fun = lambda i: self[i]
+        return buffer2(range(offset, offset+n), fun, shape)
+
+
 class PcaStream:
     '''
     Runs pca over flattened spectrum data
     '''
 
-    def __init__(self, flatStream, pca, scale=1): # scale pca result to fit tanh units
-        assert isinstance(flatStream, FlatStream)
+    def __init__(self, flatStream, pca): # scale pca result to fit tanh units
+        assert isinstance(flatStream, FlatStream) or isinstance(flatStream, StandardStream)
         self.flatStream = flatStream
         self.pca = pca
         self.width = pca.n_components_
-        self.scale = scale
 
     def __getitem__(self, i):
         x = self.flatStream.__getitem__(i)
-        return self.pca.transform(x) / self.scale
+        return self.pca.transform(x)
 
     def _restore_whitened(self, x_transformed):
         '''
@@ -349,16 +386,16 @@ class PcaStream:
             x_restored = self._restore_whitened(x)
         else:
             x_restored = self.pca.inverse_transform(x)
-        return x_restored * self.scale
+        return x_restored
 
 
     # util
 
-    def undoMany(self, V):
-        print 'PcaStream: undoing %d samples ...' % len(V)
+    def undoMany(self, x):
+        print 'PcaStream: undoing %d samples ...' % len(x)
         shape = (0, self.flatStream.width)
         fun = lambda v: self.restore(v)
-        return buffer(V, fun, shape)
+        return buffer(x, fun, shape)
 
     def buffer(self, n, offset=0):
         print 'PcaStream: buffering %d samples, starting from %d ...' % (n, offset)

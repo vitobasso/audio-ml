@@ -1,5 +1,6 @@
 from sklearn.decomposition import PCA
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 from src.util import objwrite
 
@@ -24,7 +25,7 @@ def unnormalize(x, avg, std):
 
 def pca_fit(flatStream, n, n_components=.999, whiten=False):
     x = flatStream.buffer(n)
-    print 'running pca...'
+    print 'fitting pca...'
     pca = PCA(n_components=n_components, whiten=whiten)
     pca.fit(x)
 
@@ -38,5 +39,20 @@ def pca_fit_write(flatStream, n, n_components=.999, whiten=False):
     name = 'pca_%d_to_%d' % (orig_size, reduced_size)
     name += '_w' if whiten else ''
     objwrite(pca, name)
+    return name
+
+def scaler_fit(flatStream, n):
+    x = flatStream.buffer(n)
+    print 'fitting scaler...'
+    scaler = StandardScaler()
+    scaler.fit(x)
+
+    size = flatStream.width
+    return scaler, size
+
+def scaler_fit_write(flatStream, n):
+    scaler, size = scaler_fit(flatStream, n)
+    name = 'scaler_%d' % size
+    objwrite(scaler, name)
     return name
 

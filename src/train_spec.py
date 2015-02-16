@@ -12,16 +12,16 @@ __author__ = 'victor'
 # dataset
 timeWidth = 1 # num of spectrogram time steps to input to the net each time
 fourrier = Fourrier()
-specMix = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
+specMix = MixedSpectrumStream('acapella', 'guitar', timeWidth, fourrier)
 specTar = specMix.subStream1()
-normMix = StandardizeStream(specMix)
-normTar = StandardizeStream(specTar)
-flatMix = FlatStream(normMix)
-flatTarget = FlatStream(normTar)
+flatMix = FlatStream(specMix)
+flatTar = FlatStream(specTar)
+scaler = objread('scaler_514')
+stdMix = StandardStream(flatMix, scaler)
+stdTar = StandardStream(flatTar, scaler)
 pca = objread('pca_514_to_452_w')
-pca_scale = 25
-pcaMix = PcaStream(flatMix, pca, pca_scale)
-pcaTarget = PcaStream(flatTarget, pca, pca_scale)
+pcaMix = PcaStream(stdMix, pca)
+pcaTarget = PcaStream(stdTar, pca)
 
 # training
 batchsize = 100
@@ -37,10 +37,10 @@ def build_net(width):
     # layers
     net.addInputModule(TanhLayer(width, name='in'))
     net.addOutputModule(TanhLayer(width, name='out'))
-    net.addModule(TanhLayer(50, name='h1'))
-    net.addModule(TanhLayer(20, name='h2'))
-    net.addModule(LSTMLayer(20, name='h2*'))
-    net.addModule(TanhLayer(20, name='h3'))
+    net.addModule(TanhLayer(100, name='h1'))
+    net.addModule(TanhLayer(50, name='h2'))
+    net.addModule(LSTMLayer(50, name='h2*'))
+    net.addModule(TanhLayer(50, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
@@ -54,7 +54,7 @@ def build_net(width):
     net.addConnection(FullConnection(net['h3'], net['out']))
     # net.addConnection(IdentityConnection(net['in'], net['out']))
 
-    # net.addRecurrentConnection(FullConnection(net['h1'], net['h1']))
+    net.addRecurrentConnection(FullConnection(net['h1'], net['h1']))
     # net.addRecurrentConnection(FullConnection(net['h2'], net['h2']))
 
     net.sortModules()
@@ -96,12 +96,12 @@ def test(net, mixStream):
     mXresult = np.empty(sampleShape)
     pXresult = np.empty(sampleShape)
     for i in np.arange(500):
-        netout = net.activate(mixStream[i])
-        part = pcaMix.restore(netout)
-        mXpart, pXpart = flatMix.unflatten(part)
-        mXpart, pXpart = normMix.unstandard(mXpart, pXpart)
-        mXresult = np.append(mXresult, mXpart, axis=0)
-        pXresult = np.append(pXresult, pXpart, axis=0)
+        x = net.activate(mixStream[i])
+        x = pcaMix.restore(x)
+        x = stdMix.unstandard(x)
+        mX, pX = flatMix.unflatten(x)
+        mXresult = np.append(mXresult, mX, axis=0)
+        pXresult = np.append(pXresult, pX, axis=0)
     fourrier.plot(mXresult)
     fourrier.write(mXresult, pXresult)
     play(sync=True)

@@ -4,9 +4,9 @@ import sys
 import numpy as np
 
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
-from src.datasource import MixedSpectrumStream, FlatStream, StandardizeStream, PcaStream
+from src.datasource import MixedSpectrumStream, FlatStream, MPStandardStream, PcaStream, StandardStream
 from src.fourrier import Fourrier
-from src.preprocess import pca_fit_write
+from src.preprocess import pca_fit_write, scaler_fit_write
 from src.util import play, objread
 
 
@@ -83,25 +83,26 @@ def pca_test(pca, x, flatStream):
 # pca_fit_write(flatStream, 1000)
 
 
-def streams_test():
+def test_streams():
     # create streams
     timeWidth = 1 # num of spectrogram time steps to input to the net each time
     fourrier = Fourrier()
     specMix = MixedSpectrumStream('guitar', 'drums', timeWidth, fourrier)
     specTar = specMix.subStream1()
-    normMix = StandardizeStream(specMix)
-    normTar = StandardizeStream(specTar)
-    flatMix = FlatStream(normMix)
-    flatTar = FlatStream(normTar)
+    scaler = objread('scaler_514')
+    flatMix = FlatStream(specMix)
+    flatTar = FlatStream(specTar)
+    normMix = StandardStream(flatMix, scaler)
+    normTar = StandardStream(flatTar, scaler)
     pca = objread('pca_514_to_452_w')
-    pcaMix = PcaStream(flatMix, pca)
-    pcaTar = PcaStream(flatTar, pca)
+    pcaMix = PcaStream(normMix, pca)
+    pcaTar = PcaStream(normTar, pca)
 
     # do and undo
     x = pcaMix.buffer(2000, 10000)
     x = pcaMix.restore(x)
+    x = normMix.unstandardMany(x)
     mX, pX = flatMix.unflattenMany(x)
-    mX, pX = normMix.unstandardMany(mX, pX)
     fourrier.plot(mX)
     fourrier.write(mX, pX)
     play(sync=True)
@@ -112,13 +113,25 @@ def create_pca():
     fourrier = Fourrier()
     specMix = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
     specTar = specMix.subStream1()
-    normMix = StandardizeStream(specMix)
-    normTar = StandardizeStream(specTar)
+    normMix = MPStandardStream(specMix)
+    normTar = MPStandardStream(specTar)
     flatMix = FlatStream(normMix)
     flatTar = FlatStream(normTar)
 
     # fit pca
     pca_fit_write(flatMix, 5000, whiten=True)
 
-# create_pca()
-streams_test()
+def create_scaler():
+    # create streams
+    timeWidth = 1 # num of spectrogram time steps to input to the net each time
+    fourrier = Fourrier()
+    specMix = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
+    specTar = specMix.subStream1()
+    flatMix = FlatStream(specMix)
+    flatTar = FlatStream(specTar)
+
+    # fit scaler
+    scaler_fit_write(flatMix, 5000)
+
+# create_scaler()
+test_streams()
