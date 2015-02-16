@@ -4,7 +4,7 @@ import sys
 import numpy as np
 
 from settings import SMSTOOLS_MODELS, SAMPLES_HOME
-from src.datasource import MixedSpectrumStream, FlatStream, NormSpecStream, PcaStream
+from src.datasource import MixedSpectrumStream, FlatStream, StandardizeStream, PcaStream
 from src.fourrier import Fourrier
 from src.preprocess import pca_fit_write
 from src.util import play, objread
@@ -89,8 +89,8 @@ def streams_test():
     fourrier = Fourrier()
     specMix = MixedSpectrumStream('guitar', 'drums', timeWidth, fourrier)
     specTar = specMix.subStream1()
-    normMix = NormSpecStream(specMix)
-    normTar = NormSpecStream(specTar)
+    normMix = StandardizeStream(specMix)
+    normTar = StandardizeStream(specTar)
     flatMix = FlatStream(normMix)
     flatTar = FlatStream(normTar)
     pca = objread('pca_514_to_452_w')
@@ -101,7 +101,7 @@ def streams_test():
     x = pcaMix.buffer(2000, 10000)
     x = pcaMix.restore(x)
     mX, pX = flatMix.unflattenMany(x)
-    mX = normMix.unnormMany(mX)
+    mX, pX = normMix.unstandardMany(mX, pX)
     fourrier.plot(mX)
     fourrier.write(mX, pX)
     play(sync=True)
@@ -112,8 +112,8 @@ def create_pca():
     fourrier = Fourrier()
     specMix = MixedSpectrumStream('piano', 'acapella', timeWidth, fourrier)
     specTar = specMix.subStream1()
-    normMix = NormSpecStream(specMix)
-    normTar = NormSpecStream(specTar)
+    normMix = StandardizeStream(specMix)
+    normTar = StandardizeStream(specTar)
     flatMix = FlatStream(normMix)
     flatTar = FlatStream(normTar)
 

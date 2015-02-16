@@ -64,6 +64,19 @@ def buffer2(iterable, fun, shape):
         buff2 = np.append(buff2, v2, axis=0)
     return buff1, buff2
 
+def buffer22(iterable1, iterable2, fun, shape):
+    assert len(iterable1) == len(iterable2)
+    n = len(iterable1)
+    buff1 = np.empty(shape)
+    buff2 = np.empty(shape)
+    for i in range(n):
+        v1, v2 = fun(iterable1[i], iterable2[i])
+        v1 = np.reshape(v1, (-1, shape[1]))
+        v2 = np.reshape(v2, (-1, shape[1]))
+        buff1 = np.append(buff1, v1, axis=0)
+        buff2 = np.append(buff2, v2, axis=0)
+    return buff1, buff2
+
 
 class Stream:
     '''
@@ -214,9 +227,9 @@ class MixedSpectrumStream(SpectrumStream):
         return SpectrumStream(self.rawStream.stream2, self.fourrier)
 
 
-class NormSpecStream:
+class StandardizeStream:
     '''
-    Normalizes spectral magnitudes
+    Centers spectral magnitudes around the mean and scales magnitudes and phases to fit tanh units (-1, 1)
     '''
 
     def __init__(self, specStream, mean=-80, scale=21): # default values were pre-measured from data
@@ -230,22 +243,25 @@ class NormSpecStream:
     def __getitem__(self, i):
         mX, pX = self.specStream.__getitem__(i)
         mX = (mX - self.mean) / self.scale
+        pX /= 2*np.pi
         return mX, pX
 
-    def unnorm(self, mX):
-        return mX * self.scale + self.mean
+    def unstandard(self, mX, pX):
+        mX = mX * self.scale + self.mean
+        pX *= 2*np.pi
+        return mX, pX
 
 
     # util
 
-    def unnormMany(self, mX):
-        print 'NormSpecStream: un-normalizing %d samples ...' % len(mX)
+    def unstandardMany(self, mX, pX):
+        print 'StandardizeStream: un-normalizing %d samples ...' % len(mX)
         shape = (0, self.fourrier.freqRange)
-        fun = lambda v: self.unnorm(v)
-        return buffer(mX, fun, shape)
+        fun = lambda v1, v2: self.unstandard(v1, v2)
+        return buffer22(mX, pX, fun, shape)
 
     def buffer(self, n, offset=0):
-        print 'NormSpecStream: buffering %d samples, starting from %d ...' % (n, offset)
+        print 'StandardizeStream: buffering %d samples, starting from %d ...' % (n, offset)
         shape = (0, self.fourrier.freqRange)
         fun = lambda i: self[i]
         return buffer2(range(offset, offset+n), fun, shape)
@@ -260,7 +276,7 @@ class FlatStream:
     '''
 
     def __init__(self, specStream):
-        assert isinstance(specStream, SpectrumStream) or isinstance(specStream, NormSpecStream)
+        assert isinstance(specStream, SpectrumStream) or isinstance(specStream, StandardizeStream)
         self.specStream = specStream
         (dim1, dim2) = self.specStream.shape
         self.width = 2 * dim1 * dim2

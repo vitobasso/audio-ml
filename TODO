@@ -22,7 +22,8 @@
       http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.anneal.html
       http://code.google.com/p/aima-python/
       https://github.com/perrygeo/simanneal
-
+   - sklearn Pipeline
+      http://zacstewart.com/2014/08/05/pipelines-of-featureunions-of-pipelines.html
 # pre process
    - files
       - cut silences
