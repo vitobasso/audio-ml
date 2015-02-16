@@ -15,6 +15,14 @@
          - Particle Swarm Optimization
          - Genetic Algorithm
       http://deeplearning.net/tutorial/
+   - monte carlo
+      https://github.com/pymc-devs/pymc
+   - simulated annealing
+      http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.anneal.html
+      http://code.google.com/p/aima-python/
+      https://github.com/perrygeo/simanneal
+   - genetic
+      http://pyevolve.sourceforge.net/
 
 # pre process
    - files

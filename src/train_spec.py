@@ -19,8 +19,9 @@ normTar = NormSpecStream(specTar)
 flatMix = FlatStream(normMix)
 flatTarget = FlatStream(normTar)
 pca = objread('pca')
-pcaMix = PcaStream(flatMix, pca, 6)
-pcaTarget = PcaStream(flatTarget, pca, 6)
+pca_scale = 25
+pcaMix = PcaStream(flatMix, pca, pca_scale)
+pcaTarget = PcaStream(flatTarget, pca, pca_scale)
 
 # training
 batchsize = 100
@@ -70,8 +71,13 @@ def train(mixStream, targetStream):
         batch = SupervisedDataSet(netwidth, netwidth)
         begin = randomOffset + i * batchsize
         end = begin + batchsize
+        t1 = time.time()
         for j in np.arange(begin, end):
-            batch.addSample(mixStream[j], targetStream[j])
+            x = mixStream[j]
+            y = targetStream[j]
+            batch.addSample(x, y)
+        dt = time.time() - t1
+        print '\ttime spent on preprocessing: %.2fs' % (dt)
         trainer.setData(batch)
         err = trainer.train()
         return err
