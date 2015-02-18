@@ -3,29 +3,33 @@
 - play results while training
 
 # strategy
+   - sklearn Pipeline
+      http://zacstewart.com/2014/08/05/pipelines-of-featureunions-of-pipelines.html
+   - deep belief net
+      http://deeplearning.net/tutorial/DBN.html
+      https://pythonhosted.org/nolearn/dbn.html#example-mnist
    - recurrent net: unsupervised training on sequence
    - convolutional net
       http://deeplearning.net/tutorial/lenet.html
       https://github.com/pybrain/pybrain/blob/master/pybrain/structure/networks/convolutional.py
-   - evolino: avoid local minima
-      https://github.com/pybrain/pybrain/blob/master/pybrain/supervised/trainers/evolino.py
-      ftp://ftp.idsia.ch/pub/juergen/nc2007.pdf
-      http://people.idsia.ch/~daan/papers/gomez-ijcai05.pdf
-      https://github.com/pybrain/pybrain/blob/master/examples/supervised/evolino/superimposed_sine.py
+   - stocastic
+      - evolino: avoid local minima
+         https://github.com/pybrain/pybrain/blob/master/pybrain/supervised/trainers/evolino.py
+         ftp://ftp.idsia.ch/pub/juergen/nc2007.pdf
+         http://people.idsia.ch/~daan/papers/gomez-ijcai05.pdf
+         https://github.com/pybrain/pybrain/blob/master/examples/supervised/evolino/superimposed_sine.py
+      - Particle Swarm Optimization
+      - Genetic Algorithm
+         http://pyevolve.sourceforge.net/
+      - monte carlo
+         https://github.com/pymc-devs/pymc
+      - simulated annealing
+         http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.anneal.html
+         http://code.google.com/p/aima-python/
+         https://github.com/perrygeo/simanneal
    - more
       http://www.stuartreid.co.za/misconceptions-about-neural-networks/
-         - Particle Swarm Optimization
-         - Genetic Algorithm
-            http://pyevolve.sourceforge.net/
-      http://deeplearning.net/tutorial/
-   - monte carlo
-      https://github.com/pymc-devs/pymc
-   - simulated annealing
-      http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.anneal.html
-      http://code.google.com/p/aima-python/
-      https://github.com/perrygeo/simanneal
-   - sklearn Pipeline
-      http://zacstewart.com/2014/08/05/pipelines-of-featureunions-of-pipelines.html
+
 # pre process
    - files
       - cut silences

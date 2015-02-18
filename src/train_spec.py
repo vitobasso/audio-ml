@@ -25,7 +25,7 @@ pcaTarget = PcaStream(stdTar, pca)
 
 # training
 batchsize = 100
-epochs = 10000
+epochs = 100000
 sampleShape = specMix.shape
 netwidth = pcaMix.width # num of units in the input and output layers (magnitudes and phases)
 
@@ -40,7 +40,7 @@ def build_net(width):
     net.addModule(TanhLayer(100, name='h1'))
     net.addModule(TanhLayer(50, name='h2'))
     net.addModule(LSTMLayer(50, name='h2*'))
-    net.addModule(TanhLayer(50, name='h3'))
+    net.addModule(TanhLayer(100, name='h3'))
 
     # connections
     net.addConnection(FullConnection(net['in'], net['h1']))
